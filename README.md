@@ -7,7 +7,7 @@ I originally wrote this for my text editor, Ox. It needed a fast, robust and rel
 No pre-built language rules so everything is entirely up to you. Outputs a simple stream of tokens.
 
 ## Fast
-Takes advantage of Rust's speed, prioritises speed. Works concurrently and using collections for performance gain.
+Takes advantage of Rust's speed. Benches say that it can highlight 18470 lines of Rust code in around 60 milliseconds
 
 ## Simple
 You can highlight code for most languages in just a few steps:
