@@ -75,7 +75,6 @@ fn main() {
                     "boolean" => print!("{}", color::Fg(color::LightGreen)),
                     "identifier" => print!("{}", color::Fg(color::Yellow)),
                     "macro" => print!("{}", color::Fg(color::Magenta)),
-                    "number" => print!("{}", color::Fg(color::Magenta)),
                     _ => (),
                 }
                 // Handle a text token (print out the contents)
