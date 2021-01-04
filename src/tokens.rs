@@ -18,6 +18,7 @@ pub struct FullToken {
     pub kind: &'static str,
     pub start: usize,
     pub end: usize,
+    pub multi: bool,
 }
 
 impl FullToken {
@@ -25,7 +26,7 @@ impl FullToken {
     pub fn len(&self) -> usize {
         self.text.len()
     }
-    
+
     /// Determines if the token is empty
     pub fn is_empty(&self) -> bool {
         self.len() == 0

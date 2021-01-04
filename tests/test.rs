@@ -1,6 +1,7 @@
 #[cfg(test)]
 use synoptic::highlighter::Highlighter;
 use synoptic::tokens::Token::{Start, Text, End};
+use synoptic::tokens::FullToken;
 
 const DEMO: &str = r#"
 /* hello
@@ -87,6 +88,23 @@ fn highlighter() {
             vec![Text("}".to_string())]
         ]
     );
+    assert_eq!(
+        rust.run_line(DEMO, 2).unwrap(), 
+        vec![Start("comment"), Text("*/".to_string()), End("comment")], 
+    );
+    assert_eq!(
+        rust.run_line(DEMO, 1).unwrap(), 
+        vec![Start("comment"), Text("/* hello".to_string()), End("comment")], 
+    );
+    assert_eq!(
+        rust.run_line(DEMO, 3).unwrap(), 
+        vec![
+            Start("keyword"), Text("pub".to_string()), End("keyword"), 
+            Text(" ".to_string()), 
+            Start("keyword"), Text("fn".to_string()), End("keyword"), 
+            Text(" main() -> bool {".to_string())
+        ], 
+    );
     // Test weird edge cases
     assert_eq!(
         rust.run("hello"), 
@@ -101,5 +119,16 @@ fn highlighter() {
         [
             vec![Start("foo"), Text("print".to_string()), End("foo")], 
         ]
+    );
+    assert!(FullToken { 
+        text: "", 
+        kind: "", 
+        start: 0, 
+        end: 0, 
+        multi: false 
+    }.is_empty());
+    assert_eq!(
+        format!("{:?}", Highlighter::new()), 
+        format!("{:?}", Highlighter::default()),
     );
 }

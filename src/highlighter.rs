@@ -1,6 +1,7 @@
 use crate::tokens::FullToken;
 use crate::tokens::Token;
 use regex::{Error as ReError, Regex};
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 type Str = &'static str;
@@ -10,6 +11,7 @@ type Str = &'static str;
 /// ```rust
 /// let mut h = Highlighter::new();
 /// ```
+#[derive(Debug)]
 pub struct Highlighter {
     pub regex: HashMap<&'static str, Vec<Regex>>,
     pub multiline_regex: HashMap<&'static str, Vec<Regex>>,
@@ -17,7 +19,8 @@ pub struct Highlighter {
 
 impl Highlighter {
     /// This will create a new, blank highlighter instance
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         // Create a new highlighter
         Self {
             regex: HashMap::new(),
@@ -32,7 +35,7 @@ impl Highlighter {
     /// let mut python = Highlighter::new();
     /// python.join(&["def", "return", "import"], "keyword");
     /// ```
-    /// For multiline tokens, you can add (?ms) or (?sm) to the beginning 
+    /// For multiline tokens, you can add (?ms) or (?sm) to the beginning
     ///
     /// # Errors
     /// This will return an error if one or more of your regex expressions are invalid
@@ -51,7 +54,7 @@ impl Highlighter {
     /// let mut python = Highlighter::new();
     /// python.add("[0-9]+", "number");
     /// ```
-    /// For multiline tokens, you can add (?ms) or (?sm) to the beginning 
+    /// For multiline tokens, you can add (?ms) or (?sm) to the beginning
     ///
     /// # Errors
     /// This will return an error if your regex is invalid
@@ -66,10 +69,186 @@ impl Highlighter {
         Ok(())
     }
 
+    /// A utility function to scan for just multi line tokens
+    fn run_multiline(&mut self, context: Str, result: &mut HashMap<usize, Vec<FullToken>>) {
+        for (name, expressions) in &self.multiline_regex {
+            for expr in expressions {
+                let captures = expr.captures_iter(context);
+                for captures in captures {
+                    if let Some(m) = captures.get(captures.len().saturating_sub(1)) {
+                        insert_token(
+                            result,
+                            m.start(),
+                            FullToken {
+                                text: m.as_str(),
+                                kind: name,
+                                start: m.start(),
+                                end: m.end(),
+                                multi: true,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// A utility function to scan for just single line tokens
+    fn run_singleline(&mut self, context: Str, result: &mut HashMap<usize, Vec<FullToken>>) {
+        for (name, expressions) in &self.regex {
+            for expr in expressions {
+                let captures = expr.captures_iter(context);
+                for captures in captures {
+                    if let Some(m) = captures.get(captures.len().saturating_sub(1)) {
+                        insert_token(
+                            result,
+                            m.start(),
+                            FullToken {
+                                text: m.as_str(),
+                                kind: name,
+                                start: m.start(),
+                                end: m.end(),
+                                multi: false,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// This is the method that you call to get the stream of tokens for a specific line.
+    /// The first argument is the string with the code that you wish to highlight.  
+    /// the second argument is the line number that you wish to highlight.
+    /// It returns a vector of tokens which can be used to highlight the individual line
+    /// ```rust
+    /// let mut lua = Highlighter::new();
+    /// lua.add("(?ms)[[.*?]]", "string");
+    /// lua.add("print", "keyword");
+    /// lua.run_line(r#"
+    /// print ([[ Hello World!
+    /// ]])
+    /// "#, 2);
+    /// ```
+    /// This example will return the second line, with the `]]` marked as a string
+    /// The advantage of using this over the `run` method is that it is a lot faster
+    /// This is because it only has to render one line rather than all of them, saving time
+    pub fn run_line(&mut self, context: Str, line: usize) -> Option<Vec<Token>> {
+        // Locate multiline stuff
+        let mut result: HashMap<usize, Vec<FullToken>> = HashMap::new();
+        // Locate multiline regular expressions
+        self.run_multiline(context, &mut result);
+        // Calculate start and end indices (raw) of the line
+        let (mut start, mut end) = (0, 0);
+        let mut current_line = 0;
+        let mut raw: usize = 0;
+        for i in context.chars() {
+            raw += i.to_string().len();
+            if i == '\n' {
+                current_line += 1;
+                match current_line.cmp(&line) {
+                    Ordering::Equal => start = raw,
+                    Ordering::Greater => {
+                        end = raw.saturating_sub(1);
+                        break;
+                    }
+                    #[cfg(not(tarpaulin_include))]
+                    Ordering::Less => (),
+                }
+            }
+        }
+        // Prune multiline tokens
+        for (s, tok) in result.clone() {
+            let tok = find_longest_token(&tok);
+            if tok.start > end || tok.end < start {
+                // This token is before or after this line
+                result.remove(&s);
+            } else {
+                // This token is outside this line
+                result.insert(s, vec![tok]);
+            }
+        }
+        // Get then line contents
+        let line_text = &context.get(start..end)?;
+        // Locate single line tokens within the line (not the context - hence saving time)
+        self.run_singleline(line_text, &mut result);
+        // Split multiline tokens to ensure all data in result is relevant
+        for (s, tok) in result.clone() {
+            let tok = tok[0];
+            if tok.multi {
+                //println!("There is a multiline token on this line: {:?}", tok);
+                // Check if line starts in token
+                let tok_start = if start > tok.start && start < tok.end {
+                    start - tok.start
+                } else {
+                    0
+                };
+                let tok_end = if end > tok.start && end < tok.end {
+                    end - tok.start
+                } else {
+                    tok.len()
+                };
+                let tok_text = &tok.text[tok_start..tok_end];
+                let true_start = if start > tok.start {
+                    0
+                } else {
+                    tok.start - start
+                };
+                let true_end = true_start + tok_text.len();
+                result.remove(&s);
+                let tok = FullToken {
+                    text: tok_text,
+                    kind: tok.kind,
+                    start: true_start,
+                    end: true_end,
+                    multi: true,
+                };
+                result.insert(true_start, vec![tok]);
+            }
+        }
+        // Assemble the line
+        let mut stream = vec![];
+        let mut eat = String::new();
+        let mut c = 0;
+        let mut g = 0;
+        let chars: Vec<char> = line_text.chars().collect();
+        while c != line_text.len() {
+            if let Some(v) = result.get(&c) {
+                // There are tokens here
+                if !eat.is_empty() {
+                    stream.push(Token::Text(eat.to_string()));
+                    eat = String::new();
+                }
+                // Get token
+                let tok = find_longest_token(&v);
+                stream.push(Token::Start(tok.kind));
+                // Iterate over each character in the token text
+                let mut token_eat = String::new();
+                for ch in tok.text.chars() {
+                    token_eat.push(ch);
+                }
+                if !token_eat.is_empty() {
+                    stream.push(Token::Text(token_eat))
+                }
+                stream.push(Token::End(tok.kind));
+                c += tok.len();
+                g += tok.text.chars().count();
+            } else {
+                // There are no tokens here
+                eat.push(chars[g]);
+                c += chars[g].to_string().len();
+                g += 1;
+            }
+        }
+        if !eat.is_empty() {
+            stream.push(Token::Text(eat));
+        }
+        Some(stream)
+    }
+
     /// This is the method that you call to get the stream of tokens
     /// The argument is the string with the code that you wish to highlight
-    /// This will return a vector of a vector of tokens, representing the lines and the tokens in
-    /// them
+    /// Return a vector of a vector of tokens, representing the lines and the tokens in them
     /// ```rust
     /// let mut python = Highlighter::new();
     /// python.add("[0-9]+", "number");
@@ -80,45 +259,9 @@ impl Highlighter {
         // Do the highlighting on the code
         let mut result: HashMap<usize, Vec<FullToken>> = HashMap::new();
         // Locate regular expressions
-        for (name, expressions) in &self.regex {
-            for expr in expressions {
-                let captures = expr.captures_iter(code);
-                for captures in captures {
-                    if let Some(m) = captures.get(captures.len().saturating_sub(1)) {
-                        insert_token(
-                            &mut result,
-                            m.start(),
-                            FullToken {
-                                text: m.as_str(),
-                                kind: name,
-                                start: m.start(),
-                                end: m.end(),
-                            },
-                        );
-                    }
-                }
-            }
-        }
+        self.run_singleline(code, &mut result);
         // Locate multiline regular expressions
-        for (name, expressions) in &self.multiline_regex {
-            for expr in expressions {
-                let captures = expr.captures_iter(code);
-                for captures in captures {
-                    if let Some(m) = captures.get(captures.len().saturating_sub(1)) {
-                        insert_token(
-                            &mut result,
-                            m.start(),
-                            FullToken {
-                                text: m.as_str(),
-                                kind: name,
-                                start: m.start(),
-                                end: m.end(),
-                            },
-                        );
-                    }
-                }
-            }
-        }
+        self.run_multiline(code, &mut result);
         // Use the hashmap into a vector
         let mut lines = vec![];
         let mut stream = vec![];
@@ -179,7 +322,6 @@ impl Highlighter {
         }
         lines
     }
-
 }
 
 impl Default for Highlighter {
@@ -196,6 +338,7 @@ fn find_longest_token(tokens: &[FullToken]) -> FullToken {
         kind: "",
         start: 0,
         end: 0,
+        multi: false,
     };
     for tok in tokens {
         if longest.len() < tok.len() {

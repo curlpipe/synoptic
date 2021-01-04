@@ -6,19 +6,19 @@
 //! ```rust
 //! use synoptic::{Token, Highlighter};
 //! use termion::color;
-//! 
+//!
 //! const DEMO: &str = r#"/*
 //! Multiline comments
 //! Work great
 //! */
-//! 
+//!
 //! pub fn main() -> bool {
 //!     // Demonstrate syntax highlighting in Rust!
 //!     println!("Full Unicode Support: 你好！Pretty cool");
 //!     return true;
 //! }
 //! "#;
-//! 
+//!
 //! fn main() {
 //!     // Build the rust syntax highlighter
 //!     let mut rust = Highlighter::new();
@@ -35,7 +35,7 @@
 //!     rust.add(r"([a-z_][A-Za-z0-9_]*)\s*\(", "identifier").unwrap();
 //!     // Add macro definition
 //!     rust.add(r"([a-z_][A-Za-z0-9_]*!)\s*", "macro").unwrap();
-//! 
+//!
 //!     // Run highlighter
 //!     let highlighting = rust.run(DEMO);
 //!     
@@ -71,7 +71,6 @@
 //! ```
 
 #[warn(clippy::all, clippy::pedantic)]
-
 pub mod highlighter;
 
 pub mod tokens;

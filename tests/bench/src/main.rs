@@ -18459,4 +18459,27 @@ impl Editor {
     println!("Completed build in: {:?}", build_end - build_start);
     println!("Completed run in: {:?}", run_end - run_start);
     println!("Total Time: {:?}", total_end - total_start);
+
+    println!("\n----- Moving on to single line rendering vs full line rendering -------");
+
+    let mut average_full = std::time::Duration::from_millis(0);
+    let mut average_line = std::time::Duration::from_millis(0);
+    let total = 500;
+    for i in 0..total {
+        let line_start = Instant::now();
+        let a = rust.run_line(code, i as usize);
+        let line_end = Instant::now();
+        let full_start = Instant::now();
+        let b = rust.run(code)[i as usize].clone();
+        let full_end = Instant::now();
+        assert_eq!(a, Some(b));
+        let full_diff = full_end - full_start;
+        let line_diff = line_end - line_start;
+        average_full += full_diff;
+        average_line += line_diff;
+    }
+    println!("Average full: {}µs", average_full.as_micros() / total);
+    println!("Average individual: {}µs", average_line.as_micros() / total);
+    println!("Saved time: {}s", average_full.as_secs() - average_line.as_secs());
+    println!("Performance increase: {}x faster", average_full.as_millis() / average_line.as_millis());
 }
