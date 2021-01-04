@@ -18450,10 +18450,10 @@ impl Editor {
 
     let run_start = Instant::now();
     let highlighting = rust.run(code);
-    println!("{:?}", highlighting);
     let run_end = Instant::now();
 
     let total_end = Instant::now();
+    println!("{:?}", highlighting);
 
     println!("Benching code with {} lines", code.split('\n').count());
     println!("Completed build in: {:?}", build_end - build_start);
