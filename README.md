@@ -94,7 +94,12 @@ That will render this result:
 ![](https://i.postimg.cc/1t32c35k/image.png)
 
 ## Installation
-Just add it to your `Cargo.toml`
+Just add it to your `Cargo.toml`:
+
+```toml
+[dependencies]
+synoptic = "0"
+```
 
 ## License
 `MIT` license to ensure that you can use it in your project
