@@ -1,0 +1,51 @@
+#[cfg(test)]
+use synoptic::highlighter::Highlighter;
+use synoptic::tokens::Token::{Start, Text, End};
+
+const DEMO: &str = r#"
+pub fn main() -> bool {
+    println!("Hello");
+    return true;
+}
+"#;
+
+#[test]
+fn highlighter() {
+    // Create new highlighter
+    let mut rust = Highlighter::new();
+    // Test adding keywords
+    rust.add_keyword("fn");
+    rust.add_keyword("let");
+    rust.add_keywords(&["return", "pub"]);
+    assert_eq!(
+        rust.keywords, 
+        ["fn", "let", "return", "pub"],
+    );
+    // Test highlighting
+    assert_eq!(rust.run(DEMO), [
+       Text("\n".to_string()), 
+       Start("keyword"), Text("pub".to_string()), End("keyword"), 
+       Text(" "), 
+       Start("keyword"), Text("fn".to_string()), End("keyword"), 
+       Text(" main() -> bool {\n    println!(\"Hello\");\n    "), 
+       Start("keyword"), Text("return"), End("keyword")
+    ]
+    );
+    // Test regex
+    rust.add_regex("\"(.*?)\"", "string").unwrap();
+    rust.add_multiline_regex("/*(.*?)*/", "comment").unwrap();
+    assert_eq!(
+        rust.regex["string"][0].as_str(),
+        "\"(.*?)\"",
+    );
+    assert_eq!(
+        rust.regex["comments"][0].as_str(),
+        "(?ms)/*(.*?)*/",
+    );
+    // Test highlighting
+    assert_eq!(
+        rust.run(DEMO), [
+            
+        ]
+    );
+}

@@ -1,0 +1,14 @@
+[package]
+name = "synoptic"
+version = "0.1.0"
+authors = ["curlpipe <11898833+curlpipe@users.noreply.github.com>"]
+edition = "2018"
+license = "MIT"
+description = "A simple, low-level, syntax highlighting library with unicode support"
+repository = "https://github.com/curlpipe/synoptic"
+readme = "README.md"
+keywords = ["unicode", "text-processing"]
+categories = ["text-processing"]
+
+[dependencies]
+regex = "1.4.2"
