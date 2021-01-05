@@ -50,9 +50,9 @@ impl TokOpt {
 /// For storing all the data in a token to prevent overwriting
 /// This contains the contents, type, start and end of the token
 /// This is used to compare tokens to each other to prevent tokens inside tokens
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FullToken {
-    pub text: &'static str,
+    pub text: String,
     pub kind: &'static str,
     pub start: usize,
     pub end: usize,

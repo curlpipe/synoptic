@@ -139,7 +139,7 @@ fn highlighter() {
         [vec![Start("foo"), Text("print".to_string()), End("foo")],]
     );
     assert!(FullToken {
-        text: "",
+        text: "".to_string(),
         kind: "",
         start: 0,
         end: 0,
