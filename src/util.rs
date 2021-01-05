@@ -1,6 +1,16 @@
 use crate::highlighter::Highlighter;
 use crate::tokens::{TokOpt, Token};
 
+/// This will trim tokens to adjust to an offset
+/// This is really useful if you are building a text editor on the command line
+/// The first argument is a stream of tokens, the second is the start point
+/// ```rust
+/// let mut rust = Highlighter::new();
+/// rust.add("fn", "keyword");
+/// let result = rust.run("fn");
+/// trim(&result, 1); // <- This will return [Start("keyword"), Text("n"), End("keyword")]
+/// ```
+/// This will cut off the beginning of the token and keep the token's colour intact
 pub fn trim(input: Vec<Token>, start: usize) -> Vec<Token> {
     let mut opt = Highlighter::from_stream(&input);
     let mut total_width = 0;

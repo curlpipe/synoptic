@@ -323,6 +323,8 @@ impl Highlighter {
         lines
     }
 
+    /// This is a function that will convert from a stream of tokens into a token option type
+    /// A token option type is nicer to work with for certain formats such as HTML
     #[must_use]
     pub fn from_stream(input: &[Token]) -> Vec<TokOpt> {
         let mut result = vec![];
@@ -350,6 +352,8 @@ impl Highlighter {
         result
     }
 
+    /// This is a function that will convert from a tokopt slice to a token stream
+    /// A token stream is easier to render for certain formats such as the command line
     #[must_use]
     pub fn from_opt(input: &[TokOpt]) -> Vec<Token> {
         let mut result = vec![];
