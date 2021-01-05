@@ -156,7 +156,7 @@ fn highlighter() {
 fn trimming() {
     assert_eq!(
         trim(
-            vec![
+            &[
                 Start("foo"),
                 Text("hello".to_string()),
                 End("foo"),
@@ -164,7 +164,7 @@ fn trimming() {
             ],
             3
         ),
-        vec![
+        [
             Start("foo"),
             Text("lo".to_string()),
             End("foo"),
@@ -172,23 +172,23 @@ fn trimming() {
         ],
     );
     assert_eq!(
-        trim(vec![Start("foo"), Text("hello".to_string()), End("foo")], 4),
-        vec![Start("foo"), Text("o".to_string()), End("foo")],
+        trim(&[Start("foo"), Text("hello".to_string()), End("foo")], 4),
+        [Start("foo"), Text("o".to_string()), End("foo")],
     );
     assert_eq!(
-        trim(vec![Start("foo"), Text("hello".to_string()), End("foo")], 0),
-        vec![Start("foo"), Text("hello".to_string()), End("foo")],
+        trim(&[Start("foo"), Text("hello".to_string()), End("foo")], 0),
+        [Start("foo"), Text("hello".to_string()), End("foo")],
     );
     assert_eq!(
         trim(
-            vec![Start("foo"), Text("hello".to_string()), End("foo")],
+            &[Start("foo"), Text("hello".to_string()), End("foo")],
             10
         ),
-        vec![],
+        [],
     );
     assert_eq!(
         trim(
-            vec![
+            &[
                 Text("hi".to_string()),
                 Start("foo"),
                 Text("hello".to_string()),
@@ -196,7 +196,7 @@ fn trimming() {
             ],
             1
         ),
-        vec![
+        [
             Text("i".to_string()),
             Start("foo"),
             Text("hello".to_string()),
@@ -205,7 +205,7 @@ fn trimming() {
     );
     assert_eq!(
         trim(
-            vec![
+            &[
                 Text("hi".to_string()),
                 Start("foo"),
                 Text("hello".to_string()),
@@ -213,11 +213,11 @@ fn trimming() {
             ],
             3
         ),
-        vec![Start("foo"), Text("ello".to_string()), End("foo")],
+        [Start("foo"), Text("ello".to_string()), End("foo")],
     );
     assert_eq!(
         trim(
-            vec![
+            &[
                 Text("hi".to_string()),
                 Start("foo"),
                 Text("hello".to_string()),
@@ -225,11 +225,11 @@ fn trimming() {
             ],
             2
         ),
-        vec![Start("foo"), Text("hello".to_string()), End("foo")],
+        [Start("foo"), Text("hello".to_string()), End("foo")],
     );
     assert_eq!(
         trim(
-            vec![
+            &[
                 Text("hi".to_string()),
                 Start("foo"),
                 Text("hello".to_string()),
@@ -238,11 +238,11 @@ fn trimming() {
             ],
             7
         ),
-        vec![Text("test".to_string())],
+        [Text("test".to_string())],
     );
     assert_eq!(
         trim(
-            vec![
+            &[
                 Text("hi".to_string()),
                 Start("foo"),
                 Text("hello".to_string()),
@@ -251,11 +251,11 @@ fn trimming() {
             ],
             10
         ),
-        vec![Text(" st".to_string())],
+        [Text(" st".to_string())],
     );
     assert_eq!(
         trim(
-            vec![
+            &[
                 Text("hi".to_string()),
                 Start("foo"),
                 Text("he你llo".to_string()),
@@ -263,7 +263,7 @@ fn trimming() {
             ],
             5
         ),
-        vec![Start("foo"), Text(" llo".to_string()), End("foo")],
+        [Start("foo"), Text(" llo".to_string()), End("foo")],
     );
-    assert_eq!(trim(vec![], 9), vec![],);
+    assert_eq!(trim(&[], 9), [],);
 }

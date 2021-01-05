@@ -11,7 +11,7 @@ use crate::tokens::{TokOpt, Token};
 /// trim(&result, 1); // <- This will return [Start("keyword"), Text("n"), End("keyword")]
 /// ```
 /// This will cut off the beginning of the token and keep the token's colour intact
-pub fn trim(input: Vec<Token>, start: usize) -> Vec<Token> {
+pub fn trim(input: &[Token], start: usize) -> Vec<Token> {
     let mut opt = Highlighter::from_stream(&input);
     let mut total_width = 0;
     for i in &opt {
