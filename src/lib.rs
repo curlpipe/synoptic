@@ -71,7 +71,6 @@
 //! ```
 
 #[warn(clippy::all, clippy::pedantic)]
-
 pub mod highlighter;
 pub mod tokens;
 pub mod util;

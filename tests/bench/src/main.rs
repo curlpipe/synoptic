@@ -1,6 +1,6 @@
-use synoptic::Highlighter;
-use synoptic::trim;
 use std::time::Instant;
+use synoptic::trim;
+use synoptic::Highlighter;
 
 fn main() {
     let code = r#"
@@ -18431,20 +18431,21 @@ impl Editor {
 }
 "#;
     let total_start = Instant::now();
-	// Build the rust syntax highlighter
+    // Build the rust syntax highlighter
     let build_start = Instant::now();
     let mut rust = Highlighter::new();
     // Add keywords
     rust.join(&["fn", "return", "pub"], "keyword").unwrap();
     rust.join(&["bool"], "type").unwrap();
     rust.join(&["true", "false"], "boolean").unwrap();
-	// Add comment definitions
+    // Add comment definitions
     rust.add(r"(?m)(//.*)$", "comment").unwrap();
     rust.add(r"(?ms)/\*.*?\*/", "comment").unwrap();
     // Add string definition
     rust.add("\".*?\"", "string").unwrap();
     // Add identifier definition
-    rust.add(r"([a-z_][A-Za-z0-9_]*)\s*\(", "identifier").unwrap();
+    rust.add(r"([a-z_][A-Za-z0-9_]*)\s*\(", "identifier")
+        .unwrap();
     // Add macro definition
     rust.add(r"([a-z_][A-Za-z0-9_]*!)\s*", "macro").unwrap();
     let build_end = Instant::now();
@@ -18481,8 +18482,14 @@ impl Editor {
     }
     println!("Average full: {}µs", average_full.as_micros() / total);
     println!("Average individual: {}µs", average_line.as_micros() / total);
-    println!("Saved time: {}s", average_full.as_secs() - average_line.as_secs());
-    println!("Performance increase: {}x faster", average_full.as_millis() / average_line.as_millis());
+    println!(
+        "Saved time: {}s",
+        average_full.as_secs() - average_line.as_secs()
+    );
+    println!(
+        "Performance increase: {}x faster",
+        average_full.as_millis() / average_line.as_millis()
+    );
 
     println!("\n----- Moving on to line trimming -------");
 

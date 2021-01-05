@@ -323,7 +323,8 @@ impl Highlighter {
         lines
     }
 
-    pub fn to_opt(input: &[Token]) -> Vec<TokOpt> {
+    #[must_use]
+    pub fn from_stream(input: &[Token]) -> Vec<TokOpt> {
         let mut result = vec![];
         let mut current = String::new();
         let mut toggle = false;
@@ -332,11 +333,13 @@ impl Highlighter {
                 Token::Start(_) => {
                     toggle = true;
                 }
-                Token::Text(t) => if toggle {
-                    current.push_str(t);
-                } else {
-                    result.push(TokOpt::None(t.clone()));
-                },
+                Token::Text(t) => {
+                    if toggle {
+                        current.push_str(t);
+                    } else {
+                        result.push(TokOpt::None(t.clone()));
+                    }
+                }
                 Token::End(k) => {
                     toggle = false;
                     result.push(TokOpt::Some(current, k));
@@ -347,7 +350,8 @@ impl Highlighter {
         result
     }
 
-    pub fn to_stream(input: &[TokOpt]) -> Vec<Token> {
+    #[must_use]
+    pub fn from_opt(input: &[TokOpt]) -> Vec<Token> {
         let mut result = vec![];
         for i in input {
             match i {

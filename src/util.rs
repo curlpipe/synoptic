@@ -2,7 +2,7 @@ use crate::highlighter::Highlighter;
 use crate::tokens::{TokOpt, Token};
 
 pub fn trim(input: Vec<Token>, start: usize) -> Vec<Token> {
-    let mut opt = Highlighter::to_opt(&input);
+    let mut opt = Highlighter::from_stream(&input);
     let mut total_width = 0;
     for i in &opt {
         match i {
@@ -22,5 +22,5 @@ pub fn trim(input: Vec<Token>, start: usize) -> Vec<Token> {
             break;
         }
     }
-    Highlighter::to_stream(&opt)
+    Highlighter::from_opt(&opt)
 }
