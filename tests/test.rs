@@ -2,6 +2,7 @@
 use synoptic::highlighter::Highlighter;
 use synoptic::tokens::Token::{Start, Text, End};
 use synoptic::tokens::FullToken;
+use synoptic::util::trim;
 
 const DEMO: &str = r#"
 /* hello
@@ -130,5 +131,53 @@ fn highlighter() {
     assert_eq!(
         format!("{:?}", Highlighter::new()), 
         format!("{:?}", Highlighter::default()),
+    );
+}
+
+#[test]
+fn trimming() {
+    assert_eq!(
+        trim(vec![Start("foo"), Text("hello".to_string()), End("foo"), Text("lol".to_string())], 3),
+        vec![Start("foo"), Text("lo".to_string()), End("foo"), Text("lol".to_string())],
+    );
+    assert_eq!(
+        trim(vec![Start("foo"), Text("hello".to_string()), End("foo")], 4),
+        vec![Start("foo"), Text("o".to_string()), End("foo")],
+    );
+    assert_eq!(
+        trim(vec![Start("foo"), Text("hello".to_string()), End("foo")], 0),
+        vec![Start("foo"), Text("hello".to_string()), End("foo")],
+    );
+    assert_eq!(
+        trim(vec![Start("foo"), Text("hello".to_string()), End("foo")], 10),
+        vec![],
+    );
+    assert_eq!(
+        trim(vec![Text("hi".to_string()), Start("foo"), Text("hello".to_string()), End("foo")], 1),
+        vec![Text("i".to_string()), Start("foo"), Text("hello".to_string()), End("foo")],
+    );
+    assert_eq!(
+        trim(vec![Text("hi".to_string()), Start("foo"), Text("hello".to_string()), End("foo")], 3),
+        vec![Start("foo"), Text("ello".to_string()), End("foo")],
+    );
+    assert_eq!(
+        trim(vec![Text("hi".to_string()), Start("foo"), Text("hello".to_string()), End("foo")], 2),
+        vec![Start("foo"), Text("hello".to_string()), End("foo")],
+    );
+    assert_eq!(
+        trim(vec![Text("hi".to_string()), Start("foo"), Text("hello".to_string()), End("foo"), Text("test".to_string())], 7),
+        vec![Text("test".to_string())],
+    );
+    assert_eq!(
+        trim(vec![Text("hi".to_string()), Start("foo"), Text("hello".to_string()), End("foo"), Text("te你st".to_string())], 10),
+        vec![Text(" st".to_string())],
+    );
+    assert_eq!(
+        trim(vec![Text("hi".to_string()), Start("foo"), Text("he你llo".to_string()), End("foo")], 5),
+        vec![Start("foo"), Text(" llo".to_string()), End("foo")],
+    );
+    assert_eq!(
+        trim(vec![], 9),
+        vec![],
     );
 }

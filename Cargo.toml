@@ -1,6 +1,6 @@
 [package]
 name = "synoptic"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["curlpipe <11898833+curlpipe@users.noreply.github.com>"]
 edition = "2018"
 license = "MIT"
@@ -12,3 +12,4 @@ categories = ["text-processing"]
 
 [dependencies]
 regex = "1.4.2"
+unicode-width = "0.1.8"

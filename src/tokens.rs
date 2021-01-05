@@ -1,3 +1,5 @@
+use unicode_width::UnicodeWidthChar;
+
 /// For storing tokens to put into a string
 /// It has a start token, to mark the start of a token
 /// It has a text token, for the text inbetween and inside tokens
@@ -7,6 +9,42 @@ pub enum Token {
     Start(&'static str),
     Text(String),
     End(&'static str),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum TokOpt {
+    Some(String, &'static str),
+    None(String),
+}
+
+impl TokOpt {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            TokOpt::Some(text, _) => text.len() == 0,
+            TokOpt::None(text) => text.len() == 0,
+        }
+    }
+
+    pub fn nibble(&mut self) -> Option<char> {
+        match self {
+            TokOpt::Some(ref mut text, _) => {
+                let ch = *text.chars().collect::<Vec<_>>().get(0)?;
+                text.remove(0);
+                if UnicodeWidthChar::width(ch)? > 1 {
+                    text.insert(0, ' ');
+                }
+                Some(ch)
+            }
+            TokOpt::None(ref mut text) => {
+                let ch = *text.chars().collect::<Vec<_>>().get(0)?;
+                text.remove(0);
+                if UnicodeWidthChar::width(ch)? > 1 {
+                    text.insert(0, ' ');
+                }
+                Some(ch)
+            }
+        }
+    }
 }
 
 /// For storing all the data in a token to prevent overwriting

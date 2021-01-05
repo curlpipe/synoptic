@@ -71,13 +71,17 @@
 //! ```
 
 #[warn(clippy::all, clippy::pedantic)]
-pub mod highlighter;
 
+pub mod highlighter;
 pub mod tokens;
+pub mod util;
 
 /// Highlighter is the highlighter struct that does the highlighting
 /// This is what you'll want to use
 pub use highlighter::Highlighter;
 
 /// This contains enums and structs that represent tokens
-pub use tokens::Token;
+pub use tokens::{TokOpt, Token};
+
+/// This contains utilitiues for trimming lines
+pub use util::trim;

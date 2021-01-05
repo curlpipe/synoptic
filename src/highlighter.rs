@@ -1,5 +1,5 @@
 use crate::tokens::FullToken;
-use crate::tokens::Token;
+use crate::tokens::{TokOpt, Token};
 use regex::{Error as ReError, Regex};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -321,6 +321,45 @@ impl Highlighter {
             lines.push(stream);
         }
         lines
+    }
+
+    pub fn to_opt(input: &[Token]) -> Vec<TokOpt> {
+        let mut result = vec![];
+        let mut current = String::new();
+        let mut toggle = false;
+        for i in input {
+            match i {
+                Token::Start(_) => {
+                    toggle = true;
+                }
+                Token::Text(t) => if toggle {
+                    current.push_str(t);
+                } else {
+                    result.push(TokOpt::None(t.clone()));
+                },
+                Token::End(k) => {
+                    toggle = false;
+                    result.push(TokOpt::Some(current, k));
+                    current = String::new();
+                }
+            }
+        }
+        result
+    }
+
+    pub fn to_stream(input: &[TokOpt]) -> Vec<Token> {
+        let mut result = vec![];
+        for i in input {
+            match i {
+                TokOpt::Some(text, kind) => {
+                    result.push(Token::Start(kind));
+                    result.push(Token::Text(text.clone()));
+                    result.push(Token::End(kind));
+                }
+                TokOpt::None(text) => result.push(Token::Text(text.clone())),
+            }
+        }
+        result
     }
 }
 

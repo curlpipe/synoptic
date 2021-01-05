@@ -1,4 +1,5 @@
 use synoptic::Highlighter;
+use synoptic::trim;
 use std::time::Instant;
 
 fn main() {
@@ -18482,4 +18483,16 @@ impl Editor {
     println!("Average individual: {}µs", average_line.as_micros() / total);
     println!("Saved time: {}s", average_full.as_secs() - average_line.as_secs());
     println!("Performance increase: {}x faster", average_full.as_millis() / average_line.as_millis());
+
+    println!("\n----- Moving on to line trimming -------");
+
+    let mut average_trim = std::time::Duration::from_millis(0);
+    for i in 0..total {
+        let l = rust.run_line(code, i as usize).unwrap();
+        let trim_start = Instant::now();
+        trim(l, 10);
+        let trim_end = Instant::now();
+        average_trim += trim_end - trim_start;
+    }
+    println!("Trim performance: {}ns", average_trim.as_nanos() / total);
 }

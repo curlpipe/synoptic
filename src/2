@@ -1,0 +1,22 @@
+use crate::tokens::Token;
+
+pub fn trim(mut input: Vec<Token>, start: usize) -> Vec<Token> {
+    let mut result = vec![];
+    if start == 0 { return input; }
+    let mut c = 0;
+    for i in input.iter().rev() {
+        match i {
+            Token::Start(_) | Token::End(_) => result.push(i.clone()),
+            Token::Text(txt) => {
+                if c + txt.len() > start {
+                    println!("STOP: {:?}", i);
+                    break;
+                } else {
+                    println!("Come");
+                    result.push(i.clone());
+                }
+            }
+        }
+    }
+    result.iter().rev().collect()
+}
