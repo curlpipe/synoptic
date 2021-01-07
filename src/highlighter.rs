@@ -4,8 +4,6 @@ use regex::{Error as ReError, Regex};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-type Str = &'static str;
-
 /// For performing highlighting operations
 /// You can create a new Highlighter instance using the `new` method
 /// ```rust
@@ -13,8 +11,8 @@ type Str = &'static str;
 /// ```
 #[derive(Debug, Clone)]
 pub struct Highlighter {
-    pub regex: HashMap<&'static str, Vec<Regex>>,
-    pub multiline_regex: HashMap<&'static str, Vec<Regex>>,
+    pub regex: HashMap<String, Vec<Regex>>,
+    pub multiline_regex: HashMap<String, Vec<Regex>>,
 }
 
 impl Highlighter {
@@ -39,7 +37,7 @@ impl Highlighter {
     ///
     /// # Errors
     /// This will return an error if one or more of your regex expressions are invalid
-    pub fn join(&mut self, regex: &[Str], token: Str) -> Result<(), ReError> {
+    pub fn join(&mut self, regex: &[&str], token: &str) -> Result<(), ReError> {
         // Add a regex that will match on a single line
         for i in regex {
             self.add(i, token)?;
@@ -58,9 +56,9 @@ impl Highlighter {
     ///
     /// # Errors
     /// This will return an error if your regex is invalid
-    pub fn add(&mut self, regex: Str, token: Str) -> Result<(), ReError> {
+    pub fn add(&mut self, regex: &str, token: &str) -> Result<(), ReError> {
         // Add a regex that will match on a single line
-        let re = Regex::new(regex)?;
+        let re = Regex::new(&regex)?;
         if regex.starts_with("(?ms)") || regex.starts_with("(?sm)") {
             insert_regex(&mut self.multiline_regex, re, token);
         } else {
@@ -81,7 +79,7 @@ impl Highlighter {
                             m.start(),
                             FullToken {
                                 text: m.as_str().to_string(),
-                                kind: name,
+                                kind: name.to_string(),
                                 start: m.start(),
                                 end: m.end(),
                                 multi: true,
@@ -105,7 +103,7 @@ impl Highlighter {
                             m.start(),
                             FullToken {
                                 text: m.as_str().to_string(),
-                                kind: name,
+                                kind: name.clone(),
                                 start: m.start(),
                                 end: m.end(),
                                 multi: false,
@@ -221,7 +219,7 @@ impl Highlighter {
                 }
                 // Get token
                 let tok = find_longest_token(&v);
-                stream.push(Token::Start(tok.kind));
+                stream.push(Token::Start(tok.kind.clone()));
                 // Iterate over each character in the token text
                 let mut token_eat = String::new();
                 for ch in tok.text.chars() {
@@ -230,7 +228,7 @@ impl Highlighter {
                 if !token_eat.is_empty() {
                     stream.push(Token::Text(token_eat))
                 }
-                stream.push(Token::End(tok.kind));
+                stream.push(Token::End(tok.kind.clone()));
                 c += tok.len();
                 g += tok.text.chars().count();
             } else {
@@ -278,16 +276,16 @@ impl Highlighter {
                 }
                 // Get token
                 let tok = find_longest_token(&v);
-                stream.push(Token::Start(tok.kind));
+                stream.push(Token::Start(tok.kind.clone()));
                 // Iterate over each character in the token text
                 let mut token_eat = String::new();
                 for ch in tok.text.chars() {
                     if ch == '\n' {
                         stream.push(Token::Text(token_eat));
                         token_eat = String::new();
-                        stream.push(Token::End(tok.kind));
+                        stream.push(Token::End(tok.kind.clone()));
                         lines.push(stream);
-                        stream = vec![Token::Start(tok.kind)];
+                        stream = vec![Token::Start(tok.kind.clone())];
                     } else {
                         token_eat.push(ch);
                     }
@@ -295,7 +293,7 @@ impl Highlighter {
                 if !token_eat.is_empty() {
                     stream.push(Token::Text(token_eat))
                 }
-                stream.push(Token::End(tok.kind));
+                stream.push(Token::End(tok.kind.clone()));
                 c += tok.len();
                 g += tok.text.chars().count();
             } else {
@@ -344,7 +342,7 @@ impl Highlighter {
                 }
                 Token::End(k) => {
                     toggle = false;
-                    result.push(TokOpt::Some(current, k));
+                    result.push(TokOpt::Some(current, k.clone()));
                     current = String::new();
                 }
             }
@@ -360,9 +358,9 @@ impl Highlighter {
         for i in input {
             match i {
                 TokOpt::Some(text, kind) => {
-                    result.push(Token::Start(kind));
+                    result.push(Token::Start(kind.to_string()));
                     result.push(Token::Text(text.clone()));
-                    result.push(Token::End(kind));
+                    result.push(Token::End(kind.to_string()));
                 }
                 TokOpt::None(text) => result.push(Token::Text(text.clone())),
             }
@@ -382,7 +380,7 @@ impl Default for Highlighter {
 fn find_longest_token(tokens: &[FullToken]) -> FullToken {
     let mut longest = FullToken {
         text: "".to_string(),
-        kind: "",
+        kind: "".to_string(),
         start: 0,
         end: 0,
         multi: false,
@@ -397,12 +395,12 @@ fn find_longest_token(tokens: &[FullToken]) -> FullToken {
 
 /// This is a method to insert regex into a hashmap
 /// It takes the hashmap to add to, the regex to add and the name of the token
-fn insert_regex(hash: &mut HashMap<Str, Vec<Regex>>, regex: Regex, token: Str) {
+fn insert_regex(hash: &mut HashMap<String, Vec<Regex>>, regex: Regex, token: &str) {
     // Insert regex into hashmap of vectors
     if let Some(v) = hash.get_mut(token) {
         v.push(regex);
     } else {
-        hash.insert(token, vec![regex]);
+        hash.insert(token.to_string(), vec![regex]);
     }
 }
 

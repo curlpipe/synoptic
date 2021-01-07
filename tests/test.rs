@@ -31,25 +31,25 @@ fn highlighter() {
             vec![Text("/* hello".to_string())],
             vec![Text("*/".to_string())],
             vec![
-                Start("keyword"),
+                Start("keyword".to_string()),
                 Text("pub".to_string()),
-                End("keyword"),
+                End("keyword".to_string()),
                 Text(" ".to_string()),
-                Start("keyword"),
+                Start("keyword".to_string()),
                 Text("fn".to_string()),
-                End("keyword"),
+                End("keyword".to_string()),
                 Text(" main() -> bool {".to_string())
             ],
             vec![Text("    println!(\"Hello\");".to_string())],
             vec![
                 Text("    ".to_string()),
-                Start("keyword"),
+                Start("keyword".to_string()),
                 Text("return".to_string()),
-                End("keyword"),
+                End("keyword".to_string()),
                 Text(" ".to_string()),
-                Start("keyword"),
+                Start("keyword".to_string()),
                 Text("true".to_string()),
-                End("keyword"),
+                End("keyword".to_string()),
                 Text(";".to_string())
             ],
             vec![Text("}".to_string())]
@@ -69,37 +69,41 @@ fn highlighter() {
         [
             vec![],
             vec![
-                Start("comment"),
+                Start("comment".to_string()),
                 Text("/* hello".to_string()),
-                End("comment")
+                End("comment".to_string())
             ],
-            vec![Start("comment"), Text("*/".to_string()), End("comment")],
             vec![
-                Start("keyword"),
+                Start("comment".to_string()),
+                Text("*/".to_string()),
+                End("comment".to_string())
+            ],
+            vec![
+                Start("keyword".to_string()),
                 Text("pub".to_string()),
-                End("keyword"),
+                End("keyword".to_string()),
                 Text(" ".to_string()),
-                Start("keyword"),
+                Start("keyword".to_string()),
                 Text("fn".to_string()),
-                End("keyword"),
+                End("keyword".to_string()),
                 Text(" main() -> bool {".to_string())
             ],
             vec![
                 Text("    println!(".to_string()),
-                Start("string"),
+                Start("string".to_string()),
                 Text("\"Hello\"".to_string()),
-                End("string"),
+                End("string".to_string()),
                 Text(");".to_string())
             ],
             vec![
                 Text("    ".to_string()),
-                Start("keyword"),
+                Start("keyword".to_string()),
                 Text("return".to_string()),
-                End("keyword"),
+                End("keyword".to_string()),
                 Text(" ".to_string()),
-                Start("keyword"),
+                Start("keyword".to_string()),
                 Text("true".to_string()),
-                End("keyword"),
+                End("keyword".to_string()),
                 Text(";".to_string())
             ],
             vec![Text("}".to_string())]
@@ -107,26 +111,30 @@ fn highlighter() {
     );
     assert_eq!(
         rust.run_line(DEMO, 2).unwrap(),
-        vec![Start("comment"), Text("*/".to_string()), End("comment")],
+        vec![
+            Start("comment".to_string()),
+            Text("*/".to_string()),
+            End("comment".to_string())
+        ],
     );
     assert_eq!(
         rust.run_line(DEMO, 1).unwrap(),
         vec![
-            Start("comment"),
+            Start("comment".to_string()),
             Text("/* hello".to_string()),
-            End("comment")
+            End("comment".to_string())
         ],
     );
     assert_eq!(
         rust.run_line(DEMO, 3).unwrap(),
         vec![
-            Start("keyword"),
+            Start("keyword".to_string()),
             Text("pub".to_string()),
-            End("keyword"),
+            End("keyword".to_string()),
             Text(" ".to_string()),
-            Start("keyword"),
+            Start("keyword".to_string()),
             Text("fn".to_string()),
-            End("keyword"),
+            End("keyword".to_string()),
             Text(" main() -> bool {".to_string())
         ],
     );
@@ -136,11 +144,15 @@ fn highlighter() {
     rust.add("pr", "foo").unwrap();
     assert_eq!(
         rust.run("print"),
-        [vec![Start("foo"), Text("print".to_string()), End("foo")],]
+        [vec![
+            Start("foo".to_string()),
+            Text("print".to_string()),
+            End("foo".to_string())
+        ],]
     );
     assert!(FullToken {
         text: "".to_string(),
-        kind: "",
+        kind: "".to_string(),
         start: 0,
         end: 0,
         multi: false
@@ -159,31 +171,57 @@ fn trimming() {
     assert_eq!(
         trim(
             &[
-                Start("foo"),
+                Start("foo".to_string()),
                 Text("hello".to_string()),
-                End("foo"),
+                End("foo".to_string()),
                 Text("lol".to_string())
             ],
             3
         ),
         [
-            Start("foo"),
+            Start("foo".to_string()),
             Text("lo".to_string()),
-            End("foo"),
+            End("foo".to_string()),
             Text("lol".to_string())
         ],
     );
     assert_eq!(
-        trim(&[Start("foo"), Text("hello".to_string()), End("foo")], 4),
-        [Start("foo"), Text("o".to_string()), End("foo")],
-    );
-    assert_eq!(
-        trim(&[Start("foo"), Text("hello".to_string()), End("foo")], 0),
-        [Start("foo"), Text("hello".to_string()), End("foo")],
+        trim(
+            &[
+                Start("foo".to_string()),
+                Text("hello".to_string()),
+                End("foo".to_string())
+            ],
+            4
+        ),
+        [
+            Start("foo".to_string()),
+            Text("o".to_string()),
+            End("foo".to_string())
+        ],
     );
     assert_eq!(
         trim(
-            &[Start("foo"), Text("hello".to_string()), End("foo")],
+            &[
+                Start("foo".to_string()),
+                Text("hello".to_string()),
+                End("foo".to_string())
+            ],
+            0
+        ),
+        [
+            Start("foo".to_string()),
+            Text("hello".to_string()),
+            End("foo".to_string())
+        ],
+    );
+    assert_eq!(
+        trim(
+            &[
+                Start("foo".to_string()),
+                Text("hello".to_string()),
+                End("foo".to_string())
+            ],
             10
         ),
         [],
@@ -192,50 +230,58 @@ fn trimming() {
         trim(
             &[
                 Text("hi".to_string()),
-                Start("foo"),
+                Start("foo".to_string()),
                 Text("hello".to_string()),
-                End("foo")
+                End("foo".to_string())
             ],
             1
         ),
         [
             Text("i".to_string()),
-            Start("foo"),
+            Start("foo".to_string()),
             Text("hello".to_string()),
-            End("foo")
+            End("foo".to_string())
         ],
     );
     assert_eq!(
         trim(
             &[
                 Text("hi".to_string()),
-                Start("foo"),
+                Start("foo".to_string()),
                 Text("hello".to_string()),
-                End("foo")
+                End("foo".to_string())
             ],
             3
         ),
-        [Start("foo"), Text("ello".to_string()), End("foo")],
+        [
+            Start("foo".to_string()),
+            Text("ello".to_string()),
+            End("foo".to_string())
+        ],
     );
     assert_eq!(
         trim(
             &[
                 Text("hi".to_string()),
-                Start("foo"),
+                Start("foo".to_string()),
                 Text("hello".to_string()),
-                End("foo")
+                End("foo".to_string())
             ],
             2
         ),
-        [Start("foo"), Text("hello".to_string()), End("foo")],
+        [
+            Start("foo".to_string()),
+            Text("hello".to_string()),
+            End("foo".to_string())
+        ],
     );
     assert_eq!(
         trim(
             &[
                 Text("hi".to_string()),
-                Start("foo"),
+                Start("foo".to_string()),
                 Text("hello".to_string()),
-                End("foo"),
+                End("foo".to_string()),
                 Text("test".to_string())
             ],
             7
@@ -246,9 +292,9 @@ fn trimming() {
         trim(
             &[
                 Text("hi".to_string()),
-                Start("foo"),
+                Start("foo".to_string()),
                 Text("hello".to_string()),
-                End("foo"),
+                End("foo".to_string()),
                 Text("te你st".to_string())
             ],
             10
@@ -259,13 +305,17 @@ fn trimming() {
         trim(
             &[
                 Text("hi".to_string()),
-                Start("foo"),
+                Start("foo".to_string()),
                 Text("he你llo".to_string()),
-                End("foo")
+                End("foo".to_string())
             ],
             5
         ),
-        [Start("foo"), Text(" llo".to_string()), End("foo")],
+        [
+            Start("foo".to_string()),
+            Text(" llo".to_string()),
+            End("foo".to_string())
+        ],
     );
     assert_eq!(trim(&[], 9), [],);
 }

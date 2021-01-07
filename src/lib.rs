@@ -48,7 +48,7 @@
 //!         // Handle the tokens
 //!             match tok {
 //!                 // Handle the start token (start foreground colour)
-//!                 Token::Start(kind) => match *kind {
+//!                 Token::Start(kind) => match kind.as_str() {
 //!                     "comment" => print!("{}", color::Fg(color::Black)),
 //!                     "string" => print!("{}", color::Fg(color::Green)),
 //!                     "keyword" => print!("{}", color::Fg(color::Blue)),

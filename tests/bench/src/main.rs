@@ -18497,7 +18497,7 @@ impl Editor {
     for i in 0..total {
         let l = rust.run_line(code, i as usize).unwrap();
         let trim_start = Instant::now();
-        trim(l, 10);
+        trim(&l, 10);
         let trim_end = Instant::now();
         average_trim += trim_end - trim_start;
     }

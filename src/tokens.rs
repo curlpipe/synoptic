@@ -6,14 +6,14 @@ use unicode_width::UnicodeWidthChar;
 /// It also has an end token, to mark the end of a token
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Token {
-    Start(&'static str),
+    Start(String),
     Text(String),
-    End(&'static str),
+    End(String),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokOpt {
-    Some(String, &'static str),
+    Some(String, String),
     None(String),
 }
 
@@ -53,7 +53,7 @@ impl TokOpt {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FullToken {
     pub text: String,
-    pub kind: &'static str,
+    pub kind: String,
     pub start: usize,
     pub end: usize,
     pub multi: bool,
