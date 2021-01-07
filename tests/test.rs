@@ -150,6 +150,8 @@ fn highlighter() {
         format!("{:?}", Highlighter::new()),
         format!("{:?}", Highlighter::default()),
     );
+    let mut rust = Highlighter::new();
+    rust.add("fn", "keyword").unwrap();
 }
 
 #[test]

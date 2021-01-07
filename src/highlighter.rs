@@ -11,7 +11,7 @@ type Str = &'static str;
 /// ```rust
 /// let mut h = Highlighter::new();
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Highlighter {
     pub regex: HashMap<&'static str, Vec<Regex>>,
     pub multiline_regex: HashMap<&'static str, Vec<Regex>>,
