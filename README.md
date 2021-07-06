@@ -98,7 +98,7 @@ Just add it to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-synoptic = "0"
+synoptic = "1"
 ```
 
 ## License
