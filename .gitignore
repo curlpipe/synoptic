@@ -2,3 +2,4 @@
 Cargo.lock
 tests/bench/target
 tarpaulin-report.html
+*.swp

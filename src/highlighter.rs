@@ -68,7 +68,7 @@ impl Highlighter {
     }
 
     /// A utility function to scan for just multi line tokens
-    fn run_multiline(&mut self, context: &str, result: &mut HashMap<usize, Vec<FullToken>>) {
+    fn run_multiline(&self, context: &str, result: &mut HashMap<usize, Vec<FullToken>>) {
         for (name, expressions) in &self.multiline_regex {
             for expr in expressions {
                 let captures = expr.captures_iter(context);
@@ -92,7 +92,7 @@ impl Highlighter {
     }
 
     /// A utility function to scan for just single line tokens
-    fn run_singleline(&mut self, context: &str, result: &mut HashMap<usize, Vec<FullToken>>) {
+    fn run_singleline(&self, context: &str, result: &mut HashMap<usize, Vec<FullToken>>) {
         for (name, expressions) in &self.regex {
             for expr in expressions {
                 let captures = expr.captures_iter(context);
@@ -131,7 +131,7 @@ impl Highlighter {
     /// This example will return the second line, with the `]]` marked as a string
     /// The advantage of using this over the `run` method is that it is a lot faster
     /// This is because it only has to render one line rather than all of them, saving time
-    pub fn run_line(&mut self, context: &str, line: usize) -> Option<Vec<Token>> {
+    pub fn run_line(&self, context: &str, line: usize) -> Option<Vec<Token>> {
         // Locate multiline stuff
         let mut result: HashMap<usize, Vec<FullToken>> = HashMap::new();
         // Locate multiline regular expressions
@@ -253,7 +253,7 @@ impl Highlighter {
     /// python.run("some numbers: 123");
     /// ```
     /// This example will highlight the numbers `123` in the string
-    pub fn run(&mut self, code: &str) -> Vec<Vec<Token>> {
+    pub fn run(&self, code: &str) -> Vec<Vec<Token>> {
         // Do the highlighting on the code
         let mut result: HashMap<usize, Vec<FullToken>> = HashMap::new();
         // Locate regular expressions
