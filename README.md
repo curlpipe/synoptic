@@ -93,6 +93,10 @@ That will render this result:
 
 ![](https://i.postimg.cc/1t32c35k/image.png)
 
+You can also use some provided syntax highlighters for various popular languages in the `languages` module.
+These are usually very good at syntax highlighting and I have tested them decently thoroughly, although sometimes a problem may occur,
+and in that case, please do open an issue.
+
 ## Installation
 Just add it to your `Cargo.toml`:
 
