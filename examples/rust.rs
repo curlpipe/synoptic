@@ -18,9 +18,11 @@ fn main() {
     // Build the rust syntax highlighter
     let mut rust = Highlighter::new();
     // Add keywords
-    rust.join(&["fn", "return", "pub"], "keyword").unwrap();
-    rust.join(&["bool"], "type").unwrap();
-    rust.join(&["true", "false"], "boolean").unwrap();
+    rust.join(&[r"\b(fn)\b", r"\b(return)\b", r"\b(pub)\b"], "keyword")
+        .unwrap();
+    rust.join(&[r"\b(bool)\b"], "type").unwrap();
+    rust.join(&[r"\b(true)\b", r"\b(false)\b"], "boolean")
+        .unwrap();
     // Add comment definitions
     rust.add(r"(?m)(//.*)$", "comment").unwrap();
     rust.add_bounded("/*", "*/", false, "comment");

@@ -1,5 +1,6 @@
-#[cfg(test)]
 use synoptic::highlighter::Highlighter;
+#[cfg(test)]
+use synoptic::languages::*;
 use synoptic::tokens::FullToken;
 use synoptic::tokens::Token::{End, Start, Text};
 use synoptic::util::trim;
@@ -399,4 +400,36 @@ fn trimming() {
         ],
     );
     assert_eq!(trim(&[], 9), [],);
+}
+
+#[test]
+fn test_provided_highlighters() {
+    let rust = rust();
+    let python = python();
+    assert_eq!(
+        vec![vec![
+            Start("function".to_string()),
+            Text("print".to_string()),
+            End("function".to_string()),
+            Text("(".to_string()),
+            Start("string".to_string()),
+            Text("\"Hello, world!\"".to_string()),
+            End("string".to_string()),
+            Text(")".to_string()),
+        ]],
+        python.run("print(\"Hello, world!\")")
+    );
+    assert_eq!(
+        vec![vec![
+            Start("macro".to_string()),
+            Text("println!".to_string()),
+            End("macro".to_string()),
+            Text("(".to_string()),
+            Start("string".to_string()),
+            Text("\"Hello, world!\"".to_string()),
+            End("string".to_string()),
+            Text(")".to_string()),
+        ]],
+        rust.run("println!(\"Hello, world!\")")
+    );
 }

@@ -1,3 +1,5 @@
+#![warn(clippy::all, clippy::pedantic)]
+
 //! # Synoptic
 //! ## A simple rust syntax highlighting crate
 //!
@@ -70,9 +72,16 @@
 //! }
 //! ```
 
-#[warn(clippy::all, clippy::pedantic)]
+/// This provides the main Highlighter class you will need to make your own
+/// syntax rules, or if you wish to modify the existing rules from the set of provided highlighters
 pub mod highlighter;
+/// This provides a set of prebuilt highlighters for various languages
+/// You can always build on top of them, as they just return highlighter classes
+pub mod languages;
+/// This provides the types of tokens which you can use to apply your syntax highlighting into
+/// whichever format you please
 pub mod tokens;
+/// This provides utilities to help with formatting tokens on the screen
 pub mod util;
 
 /// Highlighter is the highlighter struct that does the highlighting

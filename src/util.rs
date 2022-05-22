@@ -26,14 +26,13 @@ macro_rules! gidx {
 /// trim(&result, 1); // <- This will return [Start("keyword"), Text("n"), End("keyword")]
 /// ```
 /// This will cut off the beginning of the token and keep the token's colour intact
+#[must_use]
 pub fn trim(input: &[Token], start: usize) -> Vec<Token> {
     let mut opt = Highlighter::from_stream(input);
     let mut total_width = 0;
     for i in &opt {
-        match i {
-            TokOpt::Some(txt, _) => total_width += txt.len(),
-            TokOpt::None(txt) => total_width += txt.len(),
-        }
+        let (TokOpt::Some(txt, _) | TokOpt::None(txt)) = i;
+        total_width += txt.len();
     }
     let width = total_width.saturating_sub(start);
     while total_width != width {

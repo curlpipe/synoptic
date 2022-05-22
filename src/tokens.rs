@@ -20,33 +20,21 @@ pub enum TokOpt {
 
 impl TokOpt {
     /// Determines if this token is empty
+    #[must_use]
     pub fn is_empty(&self) -> bool {
-        match self {
-            TokOpt::Some(text, _) => text.len() == 0,
-            TokOpt::None(text) => text.len() == 0,
-        }
+        let (TokOpt::Some(text, _) | TokOpt::None(text)) = self;
+        text.len() == 0
     }
 
     /// Takes a single character off the front of a token
     pub fn nibble(&mut self) -> Option<char> {
-        match self {
-            TokOpt::Some(ref mut text, _) => {
-                let ch = *text.chars().collect::<Vec<_>>().get(0)?;
-                text.remove(0);
-                if UnicodeWidthChar::width(ch)? > 1 {
-                    text.insert(0, ' ');
-                }
-                Some(ch)
-            }
-            TokOpt::None(ref mut text) => {
-                let ch = *text.chars().collect::<Vec<_>>().get(0)?;
-                text.remove(0);
-                if UnicodeWidthChar::width(ch)? > 1 {
-                    text.insert(0, ' ');
-                }
-                Some(ch)
-            }
+        let (TokOpt::Some(ref mut text, _) | TokOpt::None(ref mut text)) = self;
+        let ch = *text.chars().collect::<Vec<_>>().get(0)?;
+        text.remove(0);
+        if UnicodeWidthChar::width(ch)? > 1 {
+            text.insert(0, ' ');
         }
+        Some(ch)
     }
 }
 
@@ -64,11 +52,13 @@ pub struct FullToken {
 
 impl FullToken {
     /// Returns the length of the token
+    #[must_use]
     pub fn len(&self) -> usize {
         self.text.len()
     }
 
     /// Determines if the token is empty
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
