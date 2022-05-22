@@ -11,6 +11,7 @@ pub enum Token {
     End(String),
 }
 
+/// An alternative way to store tokens, makes it easy to trim them
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokOpt {
     Some(String, String),
@@ -18,6 +19,7 @@ pub enum TokOpt {
 }
 
 impl TokOpt {
+    /// Determines if this token is empty
     pub fn is_empty(&self) -> bool {
         match self {
             TokOpt::Some(text, _) => text.len() == 0,
@@ -25,6 +27,7 @@ impl TokOpt {
         }
     }
 
+    /// Takes a single character off the front of a token
     pub fn nibble(&mut self) -> Option<char> {
         match self {
             TokOpt::Some(ref mut text, _) => {
@@ -69,4 +72,13 @@ impl FullToken {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+}
+
+/// For representing a bounded token definition
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Bounded {
+    pub kind: String,
+    pub start: String,
+    pub end: String,
+    pub escaping: bool,
 }

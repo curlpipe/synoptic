@@ -1,8 +1,9 @@
-use crate::tokens::FullToken;
-use crate::tokens::{TokOpt, Token};
+use crate::tokens::{Bounded, FullToken, TokOpt, Token};
+use crate::{gidx, glen};
 use regex::{Error as ReError, Regex};
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt::Write;
 
 /// For performing highlighting operations
 /// You can create a new Highlighter instance using the `new` method
@@ -13,6 +14,7 @@ use std::collections::HashMap;
 pub struct Highlighter {
     pub regex: HashMap<String, Vec<Regex>>,
     pub multiline_regex: HashMap<String, Vec<Regex>>,
+    pub bounded: Vec<Bounded>,
 }
 
 impl Highlighter {
@@ -23,6 +25,7 @@ impl Highlighter {
         Self {
             regex: HashMap::new(),
             multiline_regex: HashMap::new(),
+            bounded: Vec::new(),
         }
     }
 
@@ -52,13 +55,15 @@ impl Highlighter {
     /// let mut python = Highlighter::new();
     /// python.add("[0-9]+", "number");
     /// ```
-    /// For multiline tokens, you can add (?ms) or (?sm) to the beginning
+    /// For multiline tokens, you can add (?ms) or (?sm) to the beginning.
+    /// (See the `add_bounded` method for a better way of doing multiline tokens
+    /// if you plan on doing file buffering.)
     ///
     /// # Errors
     /// This will return an error if your regex is invalid
     pub fn add(&mut self, regex: &str, token: &str) -> Result<(), ReError> {
         // Add a regex that will match on a single line
-        let re = Regex::new(&regex)?;
+        let re = Regex::new(regex)?;
         if regex.starts_with("(?ms)") || regex.starts_with("(?sm)") {
             insert_regex(&mut self.multiline_regex, re, token);
         } else {
@@ -67,28 +72,30 @@ impl Highlighter {
         Ok(())
     }
 
-    /// A utility function to scan for just multi line tokens
-    fn run_multiline(&self, context: &str, result: &mut HashMap<usize, Vec<FullToken>>) {
-        for (name, expressions) in &self.multiline_regex {
-            for expr in expressions {
-                let captures = expr.captures_iter(context);
-                for captures in captures {
-                    if let Some(m) = captures.get(captures.len().saturating_sub(1)) {
-                        insert_token(
-                            result,
-                            m.start(),
-                            FullToken {
-                                text: m.as_str().to_string(),
-                                kind: name.to_string(),
-                                start: m.start(),
-                                end: m.end(),
-                                multi: true,
-                            },
-                        );
-                    }
-                }
-            }
-        }
+    /// This method allows you to add a special, non-regex definition to the highlighter
+    /// This not only makes it clearer to use for multiline tokens, but it will also allow you
+    /// to buffer files from memory, and still be able to highlight multiline tokens, without
+    /// having to have the end part visible in order to create a token.
+    /// The first argument is for the text that starts the token
+    /// The second argument is for the text that ends the token
+    /// The third argument is true if you want to allow for escaping of the end token, false if
+    /// not (for example, you might want to allow string escaping in strings).
+    /// The forth argument is for the token name.
+    /// ```rust
+    /// let mut rust = Highlighter::new();
+    /// rust.add_bounded("/*", "*/", false, "comment");
+    /// ```
+    /// You can still use regex to create a multiline token, but doing that won't guarantee that
+    /// your highlighting will survive file buffering.
+    pub fn add_bounded(&mut self, start: &str, end: &str, escaping: bool, token: &str) {
+        let bounded = Bounded {
+            kind: token.to_string(),
+            start: start.to_string(),
+            end: end.to_string(),
+            escaping,
+        };
+        // Insert it into the bounded hashmap
+        self.bounded.push(bounded);
     }
 
     /// A utility function to scan for just single line tokens
@@ -115,6 +122,107 @@ impl Highlighter {
         }
     }
 
+    /// A utility function to scan for just multi line tokens
+    fn run_multiline(&self, context: &str, result: &mut HashMap<usize, Vec<FullToken>>) {
+        for (name, expressions) in &self.multiline_regex {
+            for expr in expressions {
+                let captures = expr.captures_iter(context);
+                for captures in captures {
+                    if let Some(m) = captures.get(captures.len().saturating_sub(1)) {
+                        insert_token(
+                            result,
+                            m.start(),
+                            FullToken {
+                                text: m.as_str().to_string(),
+                                kind: name.to_string(),
+                                start: m.start(),
+                                end: m.end(),
+                                multi: true,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[allow(clippy::missing_panics_doc)]
+    /// A utility function to scan for just bounded tokens
+    pub fn run_bounded(&self, context: &str, result: &mut HashMap<usize, Vec<FullToken>>) {
+        for tok in &self.bounded {
+            // Init
+            let mut start_index = 0;
+            let mut grapheme_index = 0;
+            // Iterate over each character
+            while start_index < context.len() {
+                // Get and check for potential start token match
+                let potential_token: String = context
+                    .chars()
+                    .skip(grapheme_index)
+                    .take(glen!(tok.start))
+                    .collect();
+
+                // If there is a start token, keep incrementing until end token is found
+                if potential_token == tok.start {
+                    let tok_start_index = start_index;
+                    let mut tok_grapheme_index = grapheme_index;
+
+                    // Start creating token
+                    let mut current_token = FullToken {
+                        kind: tok.kind.to_string(),
+                        text: tok.start.to_string(),
+                        start: tok_start_index,
+                        end: tok_start_index + tok.start.len(),
+                        multi: false,
+                    };
+                    tok_grapheme_index += glen!(tok.start);
+                    let mut potential_end: String = "".to_string();
+                    while potential_end != tok.end && current_token.end != context.len() {
+                        potential_end = context
+                            .chars()
+                            .skip(tok_grapheme_index)
+                            .take(glen!(tok.end))
+                            .collect();
+                        // Check for potential escaped end character to skip over
+                        if tok.escaping {
+                            if let Some(lookahead) =
+                                context.chars().nth(tok_grapheme_index + glen!(tok.end))
+                            {
+                                if format!("{}{}", potential_end, lookahead)
+                                    == format!("\\{}", tok.end)
+                                {
+                                    current_token.end += 1 + tok.end.len();
+                                    write!(current_token.text, "\\{}", tok.end).unwrap();
+                                    tok_grapheme_index += 1 + glen!(tok.end);
+                                    continue;
+                                }
+                            }
+                        }
+                        if potential_end == tok.end {
+                            current_token.end += tok.end.len();
+                            current_token.text.push_str(&tok.end);
+                            break;
+                        }
+                        // Part of the token, append on
+                        current_token
+                            .text
+                            .push(context.chars().nth(tok_grapheme_index).unwrap());
+                        current_token.end += gidx!(context, tok_grapheme_index);
+                        tok_grapheme_index += 1;
+                    }
+                    // Update and add the token to the end result
+                    current_token.multi = current_token.text.contains('\n');
+                    insert_token(result, current_token.start, current_token);
+                }
+                // Update the indices
+                if start_index < context.len() {
+                    start_index += gidx!(context, grapheme_index);
+                    grapheme_index += 1;
+                }
+            }
+        }
+    }
+
     /// This is the method that you call to get the stream of tokens for a specific line.
     /// The first argument is the string with the code that you wish to highlight.  
     /// the second argument is the line number that you wish to highlight.
@@ -131,6 +239,11 @@ impl Highlighter {
     /// This example will return the second line, with the `]]` marked as a string
     /// The advantage of using this over the `run` method is that it is a lot faster
     /// This is because it only has to render one line rather than all of them, saving time
+    ///
+    /// This won't work with bounded tokens due to problems with determining what is a start
+    /// token and what isn't. Bounded tokens require all lines above to be loaded, which
+    /// run line doesn't assume.
+    #[must_use]
     pub fn run_line(&self, context: &str, line: usize) -> Option<Vec<Token>> {
         // Locate multiline stuff
         let mut result: HashMap<usize, Vec<FullToken>> = HashMap::new();
@@ -174,7 +287,6 @@ impl Highlighter {
         for (s, tok) in result.clone() {
             let tok = tok[0].clone();
             if tok.multi {
-                //println!("There is a multiline token on this line: {:?}", tok);
                 // Check if line starts in token
                 let tok_start = if start > tok.start && start < tok.end {
                     start - tok.start
@@ -218,7 +330,7 @@ impl Highlighter {
                     eat = String::new();
                 }
                 // Get token
-                let tok = find_longest_token(&v);
+                let tok = find_longest_token(v);
                 stream.push(Token::Start(tok.kind.clone()));
                 // Iterate over each character in the token text
                 let mut token_eat = String::new();
@@ -226,7 +338,7 @@ impl Highlighter {
                     token_eat.push(ch);
                 }
                 if !token_eat.is_empty() {
-                    stream.push(Token::Text(token_eat))
+                    stream.push(Token::Text(token_eat));
                 }
                 stream.push(Token::End(tok.kind.clone()));
                 c += tok.len();
@@ -253,6 +365,7 @@ impl Highlighter {
     /// python.run("some numbers: 123");
     /// ```
     /// This example will highlight the numbers `123` in the string
+    #[must_use]
     pub fn run(&self, code: &str) -> Vec<Vec<Token>> {
         // Do the highlighting on the code
         let mut result: HashMap<usize, Vec<FullToken>> = HashMap::new();
@@ -260,6 +373,8 @@ impl Highlighter {
         self.run_singleline(code, &mut result);
         // Locate multiline regular expressions
         self.run_multiline(code, &mut result);
+        // Locate bounded tokens
+        self.run_bounded(code, &mut result);
         // Use the hashmap into a vector
         let mut lines = vec![];
         let mut stream = vec![];
@@ -267,7 +382,7 @@ impl Highlighter {
         let mut c = 0;
         let mut g = 0;
         let chars: Vec<char> = code.chars().collect();
-        while c != code.len() {
+        while c < code.len() {
             if let Some(v) = result.get(&c) {
                 // There are tokens here
                 if !eat.is_empty() {
@@ -275,7 +390,7 @@ impl Highlighter {
                     eat = String::new();
                 }
                 // Get token
-                let tok = find_longest_token(&v);
+                let tok = find_longest_token(v);
                 stream.push(Token::Start(tok.kind.clone()));
                 // Iterate over each character in the token text
                 let mut token_eat = String::new();
@@ -291,7 +406,7 @@ impl Highlighter {
                     }
                 }
                 if !token_eat.is_empty() {
-                    stream.push(Token::Text(token_eat))
+                    stream.push(Token::Text(token_eat));
                 }
                 stream.push(Token::End(tok.kind.clone()));
                 c += tok.len();
@@ -315,9 +430,7 @@ impl Highlighter {
         if !eat.is_empty() {
             stream.push(Token::Text(eat));
         }
-        if !stream.is_empty() {
-            lines.push(stream);
-        }
+        lines.push(stream);
         lines
     }
 

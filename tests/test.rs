@@ -52,7 +52,8 @@ fn highlighter() {
                 End("keyword".to_string()),
                 Text(";".to_string())
             ],
-            vec![Text("}".to_string())]
+            vec![Text("}".to_string())],
+            vec![]
         ]
     );
     // Test regex
@@ -106,7 +107,8 @@ fn highlighter() {
                 End("keyword".to_string()),
                 Text(";".to_string())
             ],
-            vec![Text("}".to_string())]
+            vec![Text("}".to_string())],
+            vec![],
         ]
     );
     assert_eq!(
@@ -150,6 +152,29 @@ fn highlighter() {
             End("foo".to_string())
         ],]
     );
+    assert_eq!(
+        rust.run("print\n"),
+        [
+            vec![
+                Start("foo".to_string()),
+                Text("print".to_string()),
+                End("foo".to_string())
+            ],
+            vec![]
+        ]
+    );
+    assert_eq!(
+        rust.run("print\n\n"),
+        [
+            vec![
+                Start("foo".to_string()),
+                Text("print".to_string()),
+                End("foo".to_string())
+            ],
+            vec![],
+            vec![]
+        ]
+    );
     assert!(FullToken {
         text: "".to_string(),
         kind: "".to_string(),
@@ -164,6 +189,62 @@ fn highlighter() {
     );
     let mut rust = Highlighter::new();
     rust.add("fn", "keyword").unwrap();
+}
+
+#[test]
+fn bounded() {
+    let mut h = Highlighter::new();
+    h.add("pub", "keyword").unwrap();
+    h.add_bounded("/*", "*/", false, "comment");
+    h.add("(?ms)egg.*?gge", "egg").unwrap();
+    h.add_bounded("\"", "\"", true, "string");
+    assert_eq!(
+        h.run("pub egg pub pub gge/* egg */\"hello \\\" \" pub \"safe!\" gge"),
+        vec![vec![
+            Start("keyword".to_string()),
+            Text("pub".to_string()),
+            End("keyword".to_string()),
+            Text(" ".to_string()),
+            Start("egg".to_string()),
+            Text("egg pub pub gge".to_string()),
+            End("egg".to_string()),
+            Start("comment".to_string()),
+            Text("/* egg */".to_string()),
+            End("comment".to_string()),
+            Start("string".to_string()),
+            Text("\"hello \\\" \"".to_string()),
+            End("string".to_string()),
+            Text(" ".to_string()),
+            Start("keyword".to_string()),
+            Text("pub".to_string()),
+            End("keyword".to_string()),
+            Text(" ".to_string()),
+            Start("string".to_string()),
+            Text("\"safe!\"".to_string()),
+            End("string".to_string()),
+            Text(" gge".to_string()),
+        ],],
+    );
+    let mut h = Highlighter::new();
+    h.add("pub", "keyword").unwrap();
+    h.add_bounded("/*", "*/", true, "comment");
+    h.add("(?ms)egg.*?gge", "egg").unwrap();
+    h.add_bounded("\"", "\"", true, "string");
+    assert_eq!(
+        h.run("pub egg pub pub gge/* egg \\*/\"hello \\\" \" pub \"safe!\" gge"),
+        vec![vec![
+            Start("keyword".to_string()),
+            Text("pub".to_string()),
+            End("keyword".to_string()),
+            Text(" ".to_string()),
+            Start("egg".to_string()),
+            Text("egg pub pub gge".to_string()),
+            End("egg".to_string()),
+            Start("comment".to_string()),
+            Text("/* egg \\*/\"hello \\\" \" pub \"safe!\" gge".to_string()),
+            End("comment".to_string()),
+        ],],
+    );
 }
 
 #[test]

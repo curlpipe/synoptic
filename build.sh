@@ -1,4 +1,4 @@
-cargo tarpaulin -o Html --ignore-tests --exclude-files example/ && 
+cargo tarpaulin -o Html --ignore-tests --skip-clean --exclude-files example/ target/ &&
 cargo doc &&
-cargo +nightly clippy --fix -Z unstable-options --allow-dirty &&
-rustfmt src/*.rs
+cargo clippy --fix -Z unstable-options --allow-dirty &&
+cargo fmt
