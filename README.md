@@ -43,14 +43,14 @@ There is highly likely to be inconsistencies in the existing rules, please do op
 
 Currently, synoptic includes
 
-- [ ] Various Higher Level Languages: Python, Ruby, Lua, Perl, Java, Visual Basic, Scala
-- [ ] The C Family: C, C++, C#
-- [ ] Various Lower Level Languages: Rust, Go, Assembly
-- [ ] Web Technologies: HTML, CSS, PHP, Javascript, JSON, TypeScript
-- [ ] Mathematical Languages: MATLAB, R, Haskell, Prolog
-- [ ] Moblie Development: Kotlin, Swift, Dart
-- [ ] Markup Languages: Markdown, YAML, TOML, XML, CSV
-- [ ] Other: SQL, Bash
+- [x] Various Higher Level Languages: Python, Ruby, Lua, Perl, Java, Visual Basic, Scala
+- [x] The C Family: C, C++, C#
+- [x] Various Lower Level Languages: Rust, Go, Assembly
+- [x] Web Technologies: HTML, CSS, PHP, Javascript, JSON, TypeScript
+- [x] Mathematical Languages: MATLAB, R, Haskell, Prolog
+- [x] Moblie Development: Kotlin, Swift, Dart
+- [x] Markup Languages: Markdown, YAML, TOML, XML, CSV
+- [x] Other: SQL, Bash
 
 Open an issue if there is a language not yet supported, or if you notice any issues in the built-in syntax highlighting rules.
 
