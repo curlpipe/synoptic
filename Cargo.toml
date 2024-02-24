@@ -16,4 +16,4 @@ regex = "1.8.4"
 unicode-width = "0.1.10"
 
 [dev-dependencies]
-lliw = "*"
+lliw = "0.2.0"
