@@ -3,3 +3,4 @@
 tests/bench/target
 tarpaulin-report.html
 *.swp
+/example/target
