@@ -67,18 +67,8 @@ pub struct Atom {
 /// it occurs further down in the file.
 #[derive(Debug)]
 pub struct BoundedDef {
-    /// The name of the bounded token
-    name: String,
-    /// The start pattern of the bounded token
-    start: String,
-    /// The end pattern of the bounded token
-    end: String,
     /// Whether or not this token can be escaped
     escapable: bool,
-    /// The start pattern of interpolation region
-    i_start: Option<String>,
-    /// The end pattern of interpolation region
-    i_end: Option<String>,
 }
 
 /// This is a TokenRef, which contains detailed information on what a token is
@@ -189,9 +179,6 @@ impl Highlighter {
         // Register bounded definition
         let idx = self.bounded_def.len();
         self.bounded_def.push(BoundedDef { 
-            name: name.clone(),
-            start, end,
-            i_start: None, i_end: None,
             escapable,
         });
         // Register atom definitions
@@ -234,10 +221,6 @@ impl Highlighter {
         // Register bounded definition
         let idx = self.bounded_def.len();
         self.bounded_def.push(BoundedDef { 
-            name: name.clone(), 
-            start, end, 
-            i_start: Some(i_start), 
-            i_end: Some(i_end),
             escapable,
         });
         // Register atom definitions
@@ -502,7 +485,7 @@ impl Highlighter {
                         line_ref.push(self.tokens.len().saturating_sub(1));
                     }
                 }
-                Atom { name, kind: AtomKind::InterpolateStart, tok, .. } => {
+                Atom { kind: AtomKind::InterpolateStart, tok, .. } => {
                     if self.tokenize_state == *tok {
                         // End the current token
                         if let TokenRef::Bounded { ref mut end, .. } = self.tokens.last_mut().unwrap() {
