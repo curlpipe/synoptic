@@ -1554,6 +1554,36 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
                 r"([A-Za-z0-9-]+)=",
             ]);
         }
+        "nu" => {
+            result.bounded("string", "\"", "\"", true);
+            result.bounded("string", "'", "'", true);
+            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+            bulk_add(&mut result, "operator", &[
+                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
+                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", r"(\{)", r"(\})",
+                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(\$)", r"(\.\.)",
+                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(\.)", r"(&)", r"(\|)",
+            ]);
+            add_keywords(&mut result, &[
+                "alias", "append", "build-string", "cd", "config", "cp", "debug", "def", 
+                "do", "each", "echo", "else", "empty?", "enter", "every", "exit", "export",
+                "filter", "first", "flatten", "for", "format", "from", "get", "group-by",
+                "help", "history", "if", "insert", "keep", "last", "let", "ls", "math",
+                "merge", "metadata", "move", "mut", "open", "parse", "pivot", "plugin",
+                "post", "pre", "prune", "reduce", "reject", "rename", "rm", "save",
+                "select", "skip", "sort-by", "source", "split", "str", "table", "to",
+                "touch", "uniq", "update", "url", "use", "where", "with-env", "drop",
+                "complete", "load-env", "exec", "mkdir", "du", "glob", "mktemp", "mv",
+                "ps", "run-external", "start", "sys", "uname", "watch", "which", "nu-check",
+                "nu-highlight", "print", "decode", "char", "encode", "detect", "url", "dexit",
+                "shells", "random", "gstat", "ansi", "input", "keybindings", "kill", "sleep", 
+                "term", "ulimit", "whoami", "is-terminal", "clear", "path", "http", "query",
+                "port", "tutor", "math", "polars", "hash", "cal", "generate", "seq", "columns",
+                "collect", "compact", "flatten", "group", "headers", "transpose", "enumerate",
+                "catch", "try", "find", "upsert", "string", "pattern", "fill",
+            ]);
+
+        }
         _ => return None,
     }
     Some(result)
