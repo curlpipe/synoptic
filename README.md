@@ -50,7 +50,7 @@ Currently, synoptic includes
 - [x] Mathematical Languages: MATLAB, R, Haskell, Prolog
 - [x] Moblie Development: Kotlin, Swift, Dart
 - [x] Markup Languages: Markdown, YAML, TOML, XML, CSV
-- [x] Other: SQL, Bash
+- [x] Other: SQL, Bash, Nushell
 
 Open an issue if there is a language not yet supported, or if you notice any issues in the built-in syntax highlighting rules.
 
