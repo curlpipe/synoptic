@@ -1557,6 +1557,7 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
         "nu" => {
             result.bounded("string", "\"", "\"", true);
             result.bounded("string", "'", "'", true);
+            result.keyword("comment", "(#.*)$");
             result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
             bulk_add(&mut result, "operator", &[
                 r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
@@ -1583,6 +1584,29 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
                 "catch", "try", "find", "upsert", "string", "pattern", "fill",
             ]);
 
+        }
+        "tex" => {
+            result.bounded("string", "$", "$", true);
+            result.keyword("comment", r"([^\\]%.*)$");
+            result.keyword("comment", r"^(%.*)$");
+            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+            bulk_add(&mut result, "keyword", &[
+                r"\\addbibresource\b", r"\\author\b", r"\\begin\b", r"\\caption\b", r"\\centering\b", r"\\date\b", 
+                r"\\end\b", r"\\geometry\b", r"\\hline\b", r"\\includegraphics\b", r"\\item\b", r"\\label\b", 
+                r"\\maketitle\b", r"\\paragraph\b", r"\\parindent\b", r"\\parskip\b", r"\\printbibliography\b", 
+                r"\\section\b", r"\\setlength\b", r"\\subsection\b", r"\\tableofcontents\b", r"\\textbf\b", 
+                r"\\textit\b", r"\\texttt\b", r"\\title\b", r"\\today\b", r"\\underline\b", r"\\usepackage\b",
+                r"\\ref\b", r"\\cite\b", r"\\pageref\b", r"\\include\b", r"\\input\b", r"\\bibliographystyle\b",
+                r"\\newcommand\b", r"\\renewcommand\b", r"\\renewenvironment\b", r"\\newenvironment\b",
+                r"\\footnote\b", r"\\hline\b", r"\\vspace\b", r"\\hspace\b", r"\\newline\b", r"\\frac\b",
+                r"\\textbackslash\b", r"\\documentclass\b",
+            ]);
+            bulk_add(&mut result, "operator", &[
+                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(#)",
+                r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", r"(\^)", r"(%)",
+                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(\$)", r"(\.\.)",
+                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(&)", r"(\|)",
+            ]);
         }
         _ => return None,
     }
