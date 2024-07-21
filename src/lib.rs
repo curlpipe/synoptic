@@ -1446,8 +1446,9 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
             ]);
         }
         "md" | "markdown" => {
+            result.bounded("comment", "<!--", "-->", false);
             result.keyword("heading", "(#.*)$");
-            result.keyword("quote", "(>.*)$");
+            result.keyword("quote", "^(>.*)$");
             result.bounded("bold", "\\*\\*", "\\*\\*", true);
             result.bounded("italic", "\\*", "\\*", true);
             result.bounded("strikethrough", "~~", "~~", true);
@@ -1461,6 +1462,7 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
             result.keyword("linebreak", "^\\s*-{3}");
             result.keyword("list", "[0-9]+\\.");
             result.keyword("list", "^\\s*-");
+            result.keyword("list", "^\\s*\\+");
         }
         "toml" => {
             result.bounded("string", "\"", "\"", true);
@@ -1586,7 +1588,7 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
 
         }
         "tex" => {
-            result.bounded("string", "$", "$", true);
+            result.bounded("string", "\\$", "\\$", true);
             result.keyword("comment", r"([^\\]%.*)$");
             result.keyword("comment", r"^(%.*)$");
             result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
