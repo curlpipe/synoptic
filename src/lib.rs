@@ -65,7 +65,7 @@ pub struct Atom {
 /// Things like multiline comments and strings are examples of this.
 /// They work well for buffering files where you are unaware of where the end indicator may be as
 /// it occurs further down in the file.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BoundedDef {
     /// Whether or not this token can be escaped
     escapable: bool,
@@ -125,7 +125,7 @@ impl TokOpt {
 }
 
 /// This is the main struct that will highlight your document
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Highlighter {
     /// The list of atoms, encapsulated within an inner vector for atoms on the same line
     pub atoms: Vec<Vec<Atom>>,
