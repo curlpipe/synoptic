@@ -758,7 +758,7 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
                 r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
                 r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
                 r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-                r"(<<)", r"(>>)", r"(and)", r"(or)", r"(not)",
+                r"(<<)", r"(>>)", r"\b(and)\b", r"\b(or)\b", r"\b(not)\b",
             ]);
             add_keywords(&mut result, &[
                 "break", "do", "else", "elseif", "end", "false", "for", "function",
