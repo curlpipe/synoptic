@@ -743,7 +743,7 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
             ]);
         }
         "lua" => {
-            result.bounded("comment", r"--\[\[", r"--\]\]", false);
+            result.bounded("comment", r"--\[\[", r"\]\]--", false);
             result.keyword("comment", "(--.*)$");
             result.bounded("string", "\"", "\"", true);
             result.bounded("string", "\'", "\'", true);
