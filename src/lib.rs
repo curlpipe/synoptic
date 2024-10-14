@@ -756,8 +756,8 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
             ]);
             bulk_add(&mut result, "operator", &[
                 r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
+                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", r"(\.\.)",
+                r"(==)", r"(~=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(#)",
                 r"(<<)", r"(>>)", r"\b(and)\b", r"\b(or)\b", r"\b(not)\b",
             ]);
             add_keywords(&mut result, &[
