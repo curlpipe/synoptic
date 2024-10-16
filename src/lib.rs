@@ -1610,6 +1610,11 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
                 r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(&)", r"(\|)",
             ]);
         }
+        "diff" => {
+            result.keyword("insertion", r"^(\+(?:[^+]|$).*)$");
+            result.keyword("deletion", r"^\-(?:[^-]|$).*$");
+            result.keyword("comment", r"@@.*@@");
+        }
         _ => return None,
     }
     Some(result)
