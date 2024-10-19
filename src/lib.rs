@@ -1,4 +1,4 @@
-use unicode_width::UnicodeWidthChar;
+use unicode_width::UnicodeWidthStr;
 pub use regex::Regex;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -113,12 +113,25 @@ impl TokOpt {
     }
 
     /// This will remove the first character from the end of this token
-    pub fn nibble(&mut self) -> Option<char> {
+    pub fn nibble_front(&mut self, tab_width: usize) -> Option<char> {
         let (TokOpt::Some(ref mut text, _) | TokOpt::None(ref mut text)) = self;
         let ch = text.chars().nth(0)?;
         text.remove(0);
-        if ch.width()? > 1 {
-            text.insert(0, ' ');
+        let wid = width(&ch.to_string(), tab_width);
+        if wid > 1 {
+            *text = format!("{}{text}", " ".repeat(wid.saturating_sub(1)));
+        }
+        Some(ch)
+    }
+
+    /// This will remove the last character from the end of this token
+    pub fn nibble_back(&mut self, tab_width: usize) -> Option<char> {
+        let (TokOpt::Some(ref mut text, _) | TokOpt::None(ref mut text)) = self;
+        let ch = text.chars().last()?;
+        text.pop();
+        let wid = width(&ch.to_string(), tab_width);
+        if wid > 1 {
+            *text = format!("{text}{}", " ".repeat(wid.saturating_sub(1)));
         }
         Some(ch)
     }
@@ -542,24 +555,61 @@ fn char_len(string: &str, tab_width: usize) -> usize {
     string.chars().count() + string.matches('\t').count() * tab_width.saturating_sub(1)
 }
 
+/// Utility function to determine the width of a string, with variable tab width
+#[must_use]
+pub fn width(st: &str, tab_width: usize) -> usize {
+    let tabs = st.matches('\t').count();
+    (st.width() + tabs * tab_width).saturating_sub(tabs)
+}
+
 /// Trim utility function to trim down a line of tokens to offset text
-pub fn trim(input: &[TokOpt], start: usize) -> Vec<TokOpt> {
+pub fn trim(input: &[TokOpt], start: usize, length: usize, tab_width: usize) -> Vec<TokOpt> {
+    // Form a vector of tokens
     let mut opt: Vec<TokOpt> = input.iter().cloned().collect();
+    // Work out overall display length of the input
     let mut total_width = 0;
     for i in &opt {
         let (TokOpt::Some(txt, _) | TokOpt::None(txt)) = i;
-        total_width += txt.len();
+        total_width += width(txt, tab_width);
     }
-    let width = total_width.saturating_sub(start);
-    while total_width != width {
-        if let Some(token) = opt.get_mut(0) {
-            token.nibble();
+    // Strip away from the beginning of the input (to match start)
+    for _ in 0..start {
+        if let Some(token) = opt.first_mut() {
+            // Chip away 1 display length
+            token.nibble_front(tab_width);
             total_width -= 1;
+            // Remove any redundant tokens
             if token.is_empty() {
                 opt.remove(0);
             }
         } else {
+            // No tokens left, discontinue
             break;
+        }
+    }
+    // Strip away from the end of the input (to match length)
+    while total_width > length {
+        if let Some(token) = opt.last_mut() {
+            // Chip away 1 display length
+            token.nibble_back(tab_width);
+            total_width -= 1;
+            // Remove any redundant tokens
+            if token.is_empty() {
+                opt.pop();
+            }
+        } else {
+            // No tokens left, discontinue
+            break;
+        }
+    }
+    // Apply any padding if required
+    while total_width < length {
+        if let Some(TokOpt::None(ref mut text)) = opt.last_mut() {
+            *text += " ";
+            total_width += 1;
+        } else {
+            // No tokens left, discontinue
+            opt.push(TokOpt::None("".to_string()));
         }
     }
     opt
