@@ -591,8 +591,8 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
                 "Option", "Ok", "Err", "Self", "std"
             ]);
             bulk_add(&mut result, "operator", &[
-                "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=", "\\-=", 
-                "\\*=", "\\\\=", "==", "!=", "\\?", ">=", "<=", "<", ">",
+                "&&", r"\|\|", "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=", "\\-=",
+                "\\*=", "\\\\=", "==", "!=", "\\?", ">=", "<=", "<", ">", "!",
             ]);
             bulk_add(&mut result, "character", &[
                 r"'[^\\]'", "'\\\\.'"
@@ -605,6 +605,7 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
             ]);
             bulk_add(&mut result, "function", &[
                 "fn\\s+([a-z_][A-Za-z0-9_]*)\\s*\\(",
+                "fn\\s+([a-z_][A-Za-z0-9_]*)\\s*<.*>\\s*\\(",
                 "\\.([a-z_][A-Za-z0-9_]*)\\s*\\(",
                 "([a-z_][A-Za-z0-9_]*)\\s*\\(",
             ]);
