@@ -1,7 +1,7 @@
 [package]
 name = "synoptic"
 authors = ["curlpipe <11898833+curlpipe@users.noreply.github.com>"]
-version = "2.0.9"
+version = "2.1.0"
 edition = "2021"
 license = "MIT"
 description = "A simple, low-level, syntax highlighting library with unicode support"
@@ -13,7 +13,7 @@ categories = ["text-processing"]
 [dependencies]
 if_chain = "1.0.2"
 regex = "1.8.4"
-unicode-width = "0.1.10"
+unicode-width = "0.2"
 
 [dev-dependencies]
 lliw = "0.2.0"
