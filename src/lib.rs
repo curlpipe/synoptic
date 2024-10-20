@@ -562,8 +562,32 @@ pub fn width(st: &str, tab_width: usize) -> usize {
     (st.width() + tabs * tab_width).saturating_sub(tabs)
 }
 
+
 /// Trim utility function to trim down a line of tokens to offset text
-pub fn trim(input: &[TokOpt], start: usize, length: usize, tab_width: usize) -> Vec<TokOpt> {
+pub fn trim(input: &[TokOpt], start: usize) -> Vec<TokOpt> {
+    let mut opt: Vec<TokOpt> = input.iter().cloned().collect();
+    let mut total_width = 0;
+    for i in &opt {
+        let (TokOpt::Some(txt, _) | TokOpt::None(txt)) = i;
+        total_width += txt.len();
+    }
+    let width = total_width.saturating_sub(start);
+    while total_width != width {
+        if let Some(token) = opt.get_mut(0) {
+            token.nibble_front(4);
+            total_width -= 1;
+            if token.is_empty() {
+                opt.remove(0);
+            }
+        } else {
+            break;
+        }
+    }
+    opt
+}
+
+/// Trim utility function to trim down a line of tokens to offset text (with length)
+pub fn trim_fit(input: &[TokOpt], start: usize, length: usize, tab_width: usize) -> Vec<TokOpt> {
     // Form a vector of tokens
     let mut opt: Vec<TokOpt> = input.iter().cloned().collect();
     // Work out overall display length of the input
