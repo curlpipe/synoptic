@@ -735,7 +735,7 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
                 "str", "bool", "int", "tuple", "list", "dict", "tuple",
                 "len", "None", "input", "type", "set", "range", "enumerate",
                 "open", "iter", "min", "max", "dir", "self", "isinstance",
-                "help", "next", "super",
+                "help", "next", "super", "match", "case",
             ]);
             result.keyword("attribute", "@.*$");
             result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");

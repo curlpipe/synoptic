@@ -1,7 +1,7 @@
 [package]
 name = "synoptic"
 authors = ["curlpipe <11898833+curlpipe@users.noreply.github.com>"]
-version = "2.2.0"
+version = "2.2.1"
 edition = "2021"
 license = "MIT"
 description = "A simple, low-level, syntax highlighting library with unicode support"
