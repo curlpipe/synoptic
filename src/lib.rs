@@ -654,7 +654,7 @@ pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
             result.bounded("attribute", r"\#!\[", r"\]", false);
             result.keyword("namespace", "([a-z_][A-Za-z0-9_]*)::");
             add_keywords(&mut result, &[
-                "as", "break", "const", "continue", "crate", "else", "enum", "extern",
+                "as", "break", "const", "continue", "char", "crate", "else", "enum", "extern",
                 "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move",
                 "mut", "pub", "ref", "return", "self", "static", "struct", "super", "trait",
                 "type", "unsafe", "use", "where", "while", "async", "await", "dyn",
