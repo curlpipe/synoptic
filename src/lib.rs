@@ -175,7 +175,7 @@ impl Highlighter {
     /// Register a new keyword token, provide its name and regex
     pub fn keyword<S: Into<String>>(&mut self, name: S, exp: &str) {
         let name = name.into();
-        let exp = Regex::new(&exp).expect("Invalid regex!");
+        let exp = Regex::new(exp).expect("Invalid regex!");
         self.atom_def.push(AtomDef { name, exp, kind: AtomKind::Keyword, tok: None });
     }
     
@@ -276,14 +276,14 @@ impl Highlighter {
     ///
     /// Note that this will overwrite any existing information,
     /// use append to add extra lines to the document.
-    pub fn run(&mut self, lines: &Vec<String>) {
+    pub fn run(&mut self, lines: &[String]) {
         // Atomize every line
         self.atoms = lines.iter().map(|l| self.atomize(l)).collect();
         self.tokenize();
     }
 
     /// Appends a line to the highlighter.
-    pub fn append(&mut self, line: &String) {
+    pub fn append(&mut self, line: &str) {
         // Atomize this line
         self.atoms.push(self.atomize(line));
         self.line_ref.push(vec![]);
@@ -306,7 +306,7 @@ impl Highlighter {
     /// // Get the TokOpt for the second line
     /// highlighter.line(1, &"second line!".to_string())
     /// ```
-    pub fn line(&self, y: usize, line: &String) -> Vec<TokOpt> {
+    pub fn line(&self, y: usize, line: &str) -> Vec<TokOpt> {
         let line = line.replace("\t", &" ".repeat(self.tab_width));
         let len = line.chars().count();
         let mut result = vec![];
@@ -318,7 +318,7 @@ impl Highlighter {
                 TokenRef::Bounded { start, end, .. } => {
                     let start = if start.y != y { 0 } else { self.atoms[start.y][start.x].x.start };
                     let end = end.clone()
-                        .and_then(|end| Some(if end.y != y { len } else { self.atoms[end.y][end.x].x.end }))
+                        .map(|end| if end.y != y { len } else { self.atoms[end.y][end.x].x.end })
                         .unwrap_or(len);
                     registry.insert(start, (end, token));
                 }
@@ -355,7 +355,7 @@ impl Highlighter {
 
     /// Whenever a character is deleted or inserted on a line,
     /// call this function to update any tokens.
-    pub fn edit(&mut self, y: usize, line: &String) {
+    pub fn edit(&mut self, y: usize, line: &str) {
         let old_atoms = self.atoms[y].clone();
         // Update the atoms on this line
         self.atoms[y] = self.atomize(line);
@@ -368,7 +368,7 @@ impl Highlighter {
     /// Takes two lists of atoms and determines if retokenization is required in the first place
     /// This method will ignore index (as this is expected to change when editing)
     /// Has been shown to make editing events 500x faster to apply (where no atoms are modified)
-    fn retokenization_needed(&self, old: &Vec<Atom>, new: &Vec<Atom>) -> bool {
+    fn retokenization_needed(&self, old: &[Atom], new: &Vec<Atom>) -> bool {
         // List lengths differ => atoms have been added or deleted
         if old.len() != new.len() { return true; }
         for (o, n) in old.iter().zip(new) {
@@ -377,12 +377,12 @@ impl Highlighter {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     /// Whenever a line is inserted into the document,
     /// call this function to update any tokens.
-    pub fn insert_line(&mut self, y: usize, line: &String) {
+    pub fn insert_line(&mut self, y: usize, line: &str) {
         self.atoms.insert(y, self.atomize(line));
         self.tokenize();
     }
@@ -395,7 +395,7 @@ impl Highlighter {
     }
 
     /// This process will turn a line into a vector of atoms
-    fn atomize(&self, line: &String) -> Vec<Atom> {
+    fn atomize(&self, line: &str) -> Vec<Atom> {
         let mut atoms = vec![];
         // For each atom definition
         for def in &self.atom_def {
@@ -542,10 +542,10 @@ impl Highlighter {
 }
 
 /// This will find all occurances of a string in a document (and return character indices)
-pub fn find_all(exp: &Regex, target: &String, tab_width: usize) -> Vec<Range<usize>> {
-    exp.captures_iter(&target)
+pub fn find_all(exp: &Regex, target: &str, tab_width: usize) -> Vec<Range<usize>> {
+    exp.captures_iter(target)
         // Get last capture
-        .map(|c| c.iter().filter_map(|c| c).collect::<Vec<_>>())
+        .map(|c| c.iter().flatten().collect::<Vec<_>>())
         .map(|mut c| c.pop().unwrap())
         // Extract end and start values
         .map(|m| (m.start(), m.end()))
@@ -571,7 +571,7 @@ pub fn width(st: &str, tab_width: usize) -> usize {
 
 /// Trim utility function to trim down a line of tokens to offset text
 pub fn trim(input: &[TokOpt], start: usize) -> Vec<TokOpt> {
-    let mut opt: Vec<TokOpt> = input.iter().cloned().collect();
+    let mut opt: Vec<TokOpt> = input.to_vec();
     let mut total_width = 0;
     for i in &opt {
         let (TokOpt::Some(txt, _) | TokOpt::None(txt)) = i;
@@ -595,7 +595,7 @@ pub fn trim(input: &[TokOpt], start: usize) -> Vec<TokOpt> {
 /// Trim utility function to trim down a line of tokens to offset text (with length)
 pub fn trim_fit(input: &[TokOpt], start: usize, length: usize, tab_width: usize) -> Vec<TokOpt> {
     // Form a vector of tokens
-    let mut opt: Vec<TokOpt> = input.iter().cloned().collect();
+    let mut opt: Vec<TokOpt> = input.to_vec();
     // Work out overall display length of the input
     let mut total_width = 0;
     for i in &opt {
