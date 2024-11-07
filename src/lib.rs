@@ -402,14 +402,19 @@ impl Highlighter {
             // Register all occurances of any atom
             for x in occurances {
                 if !x.is_empty() {
-                    // Check if there is a lone backslash behind atom (indicating an escape)
-                    let backslashed = x.start != 0 && line.chars().nth(x.start - 1) == Some('\\');
-                    let escapedescape = x.start != 0 && x.start != 1 && line.chars().nth(x.start - 2) == Some('\\');
+                    // Work out how many backslashes there are behind this atom (for escaping)
+                    let mut before_atom: Vec<char> = line.chars().take(x.start).collect();
+                    let mut backslash_count = 0;
+                    while let Some('\\') = before_atom.pop() {
+                        backslash_count += 1;
+                    }
+                    // Push out the atom
                     atoms.push(Atom {
                         kind: def.kind.clone(),
                         name: def.name.clone(),
                         tok: def.tok,
-                        backslashed: backslashed && !escapedescape,
+                        // An odd number of backslashes = escaped
+                        backslashed: backslash_count % 2 != 0,
                         x,
                     });
                 }

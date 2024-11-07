@@ -1,0 +1,17 @@
+Total: 36 languages
+Languages known to not be supported yet: 14
+
+Zsh
+Vala
+Julia
+Ini
+Haml
+Fortran
+Erlang
+Dockerfile
+D
+Crystal
+Clojure
+Cobol
+Batch file
+Ada
