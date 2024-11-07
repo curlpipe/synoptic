@@ -675,7 +675,11 @@ pub fn trim_fit(input: &[TokOpt], start: usize, length: usize, tab_width: usize)
         opt.drain(..start_tok);
     }
     // Blitz all tokens firmly ahead of length
-    if let Some((end_tok, _)) = end_idx {
+    if let Some((mut end_tok, _)) = end_idx {
+        if let Some((start_tok, _)) = start_idx {
+            // Adjust end_tok after draining of start tokens
+            end_tok -= start_tok;
+        }
         if end_tok + 1 < opt.len() {
             opt.drain(end_tok + 1..);
         }
