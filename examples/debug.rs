@@ -1,29 +1,17 @@
-use synoptic::{Highlighter, TokOpt};
+use synoptic::{Highlighter, TokOpt, trim_fit};
 
-pub static CODE: &str = "\
-\"
-
-MULTILINE MADNESS
-
-\"
-";
+pub static CODE: &str = "p你ub eg你g 你fn";
 
 fn main() {
-    //let mut h = synoptic::from_extension("rs", 4).unwrap();
-    let mut h = Highlighter::new(4);
-    //h.bounded("string", "\"\"\"", "\"\"\"", true);
-    h.bounded("string", "\"", "\"", true);
-    let mut code = CODE.split('\n').map(|x| x.to_string()).collect();
+    let mut h = synoptic::from_extension("rs", 4).unwrap();
+    let mut code: Vec<String> = CODE.split('\n').map(|x| x.to_string()).collect();
     h.run(&code);
-    println!("{:#?}", h.atoms);
-    println!("{:#?}", h.tokens);
-    println!("{:#?}", h.line_ref);
-    for (y, line) in code.iter().enumerate() {
-        print!("{: <3} |", y);
-        for token in h.line(y, &line) {
+    for start in 0..20 {
+        // println!("{}|{}", &code[0].chars().take(start).collect::<String>(), &code[0].chars().skip(start).collect::<String>());
+        for token in trim_fit(&h.line(0, &code[0]), start, 5, 4) {
             match token {
-                TokOpt::Some(text, kind) => print!("({text})"),
-                TokOpt::None(text) => print!("{text}"),
+                TokOpt::Some(text, kind) => print!("[{text}]"),
+                TokOpt::None(text) => print!("({text})"),
             }
         }
         println!();

@@ -2,6 +2,7 @@ use unicode_width::UnicodeWidthStr;
 pub use regex::Regex;
 use std::collections::HashMap;
 use std::ops::Range;
+use std::cmp::Ordering;
 
 /// Represents a point in a 2d space
 #[derive(Debug, Clone, PartialEq)]
@@ -112,6 +113,18 @@ impl TokOpt {
         text.len() == 0
     }
 
+    /// Finds the text of a tokopt
+    pub fn text(&self) -> &String {
+        let (TokOpt::Some(text, _) | TokOpt::None(text)) = self;
+        text
+    }
+
+    /// Finds the text of a tokopt (mutable)
+    pub fn text_mut(&mut self) -> &mut String {
+        let (TokOpt::Some(ref mut text, _) | TokOpt::None(ref mut text)) = self;
+        text
+    }
+
     /// This will remove the first character from the end of this token
     pub fn nibble_front(&mut self, tab_width: usize) -> Option<char> {
         let (TokOpt::Some(ref mut text, _) | TokOpt::None(ref mut text)) = self;
@@ -134,6 +147,51 @@ impl TokOpt {
             *text = format!("{text}{}", " ".repeat(wid.saturating_sub(1)));
         }
         Some(ch)
+    }
+
+    pub fn skip(&mut self, idx: usize, tab_width: usize) {
+        let mut at_disp = 0;
+        let mut at_char = 0;
+        let mut padding = 0;
+        for i in self.text().chars() {
+            match at_disp.cmp(&idx) {
+                // Exactly at index, skip up to this point
+                Ordering::Equal => break,
+                // We skipped too much, indicating that padding is needed
+                Ordering::Greater => {
+                    padding = at_disp - idx;
+                    break;
+                }
+                _ => {
+                    at_disp += width(&i.to_string(), tab_width);
+                    at_char += 1;
+                }
+            }
+        }
+        *self.text_mut() = " ".repeat(padding) + &self.text().chars().skip(at_char).collect::<String>();
+    }
+
+    pub fn take(&mut self, idx: usize, tab_width: usize) {
+        let mut at_disp = 0;
+        let mut at_char = 0;
+        let mut padding = 0;
+        for i in self.text().chars() {
+            match at_disp.cmp(&idx) {
+                // Exactly at index, take up to this point
+                Ordering::Equal => break,
+                // We took too much, indicating that padding is needed
+                Ordering::Greater => {
+                    padding = at_disp - idx;
+                    at_char -= 1;
+                    break;
+                }
+                _ => {
+                    at_disp += width(&i.to_string(), tab_width);
+                    at_char += 1;
+                }
+            }
+        }
+        *self.text_mut() = self.text().chars().take(at_char).collect::<String>() + &" ".repeat(padding);
     }
 }
 
@@ -596,43 +654,38 @@ pub fn trim(input: &[TokOpt], start: usize) -> Vec<TokOpt> {
 pub fn trim_fit(input: &[TokOpt], start: usize, length: usize, tab_width: usize) -> Vec<TokOpt> {
     // Form a vector of tokens
     let mut opt: Vec<TokOpt> = input.to_vec();
-    // Work out overall display length of the input
-    let mut total_width = 0;
-    for i in &opt {
-        let (TokOpt::Some(txt, _) | TokOpt::None(txt)) = i;
-        total_width += width(txt, tab_width);
+    // (1) Find the location of the starting point
+    let start_idx = find_tok_index(input, start, tab_width);
+	// (2) Find the location of the ending point
+    let end_idx = find_tok_index(input, start + length, tab_width);
+    // Trim off start token (ahead of time)
+    if let Some((start_tok, start_rel)) = start_idx {
+        opt.get_mut(start_tok).unwrap().skip(start_rel, tab_width);
     }
-    // Strip away from the beginning of the input (to match start)
-    for _ in 0..start {
-        if let Some(token) = opt.first_mut() {
-            // Chip away 1 display length
-            token.nibble_front(tab_width);
-            total_width -= 1;
-            // Remove any redundant tokens
-            if token.is_empty() {
-                opt.remove(0);
-            }
-        } else {
-            // No tokens left, discontinue
-            break;
+    // Trim off end token (ahead of time)
+    if let Some((end_tok, mut end_rel)) = end_idx {
+        if start_idx.unwrap().0 == end_tok {
+            // Same token for start and end! Adjust (to account for start trim)
+            end_rel -= start_idx.unwrap().1;
+        }
+        opt.get_mut(end_tok).unwrap().take(end_rel, tab_width);
+	}
+    // Blitz all tokens firmly behind start
+	if let Some((start_tok, _)) = start_idx {
+        opt.drain(..start_tok);
+    }
+    // Blitz all tokens firmly ahead of length
+    if let Some((end_tok, _)) = end_idx {
+        if end_tok + 1 < opt.len() {
+            opt.drain(end_tok + 1..);
         }
     }
-    // Strip away from the end of the input (to match length)
-    while total_width > length {
-        if let Some(token) = opt.last_mut() {
-            // Chip away 1 display length
-            token.nibble_back(tab_width);
-            total_width -= 1;
-            // Remove any redundant tokens
-            if token.is_empty() {
-                opt.pop();
-            }
-        } else {
-            // No tokens left, discontinue
-            break;
-        }
+    // If we can't satisfy start or end, then just return empty handed
+    if start_idx.is_none() && end_idx.is_none() {
+        opt = vec![];
     }
-    // Apply any padding if required
+    // Apply padding if applicable
+    let mut total_width: usize = opt.iter().map(|tok| width(tok.text(), tab_width)).sum();
     while total_width < length {
         if let Some(TokOpt::None(ref mut text)) = opt.last_mut() {
             *text += " ";
@@ -642,7 +695,25 @@ pub fn trim_fit(input: &[TokOpt], start: usize, length: usize, tab_width: usize)
             opt.push(TokOpt::None("".to_string()));
         }
     }
+    // Return the result
     opt
+}
+
+/// Find the token index within a tokopt given a display index
+/// Returns (token_index, index_within_that_token)
+pub fn find_tok_index(input: &[TokOpt], disp_idx: usize, tab_width: usize) -> Option<(usize, usize)> {
+    let mut total_width = 0;
+    for (idx, token) in input.iter().enumerate() {
+        let this_width = width(token.text(), tab_width);
+        total_width += this_width;
+        // Check if we've passed the display index
+        if total_width > disp_idx {
+            // We have, this token contains disp_idx, work out relative idx
+            let rel_idx = this_width - (total_width - disp_idx);
+            return Some((idx, rel_idx));
+        }
+    }
+    None
 }
 
 /// Function to obtain a syntax highlighter based on a file extension
