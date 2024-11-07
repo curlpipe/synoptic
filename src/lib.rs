@@ -332,19 +332,20 @@ impl Highlighter {
             }
         }
         // Process tokens into TokOpt format
+        let mut chars = line.chars();
         let mut x = 0;
         while x < len {
             if let Some((end, TokenRef::Bounded { name, .. } | TokenRef::Keyword { name, .. })) = registry.get(&x) {
                 // Process token
-                let text = line.chars().skip(x).take(end - x).collect::<String>();
+                let text = chars.by_ref().take(end - x).collect::<String>();
                 result.push(TokOpt::Some(text, name.clone()));
                 x = *end;
             } else {
                 // Process plain text
                 if let Some(TokOpt::None(ref mut s)) = result.last_mut() {
-                    s.push(line.chars().nth(x).unwrap());
+                    s.push(chars.next().unwrap());
                 } else {
-                    result.push(TokOpt::None(line.chars().nth(x).unwrap().to_string()));
+                    result.push(TokOpt::None(chars.next().unwrap().to_string()));
                 }
                 x += 1;
             }
