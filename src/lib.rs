@@ -463,11 +463,15 @@ impl Highlighter {
                 if !x.is_empty() {
                     // Work out how many backslashes there are behind this atom (for escaping)
                     let mut backslash_count = 0;
-                    if x.start != 0 && line.chars().nth(x.start - 1) == Some('\\') {
-                        let mut before_atom: Vec<char> = line.chars().take(x.start).collect();
-                        while let Some('\\') = before_atom.pop() {
-                            backslash_count += 1;
-                        }
+                    // Take atoms and calculate backslashes (up to 10)
+                    let check_to = 10;
+                    let mut before_atom: Vec<char> = line
+                        .chars()
+                        .skip(x.start.saturating_sub(check_to))
+                        .take(check_to)
+                        .collect();
+                    while let Some('\\') = before_atom.pop() {
+                        backslash_count += 1;
                     }
                     // Push out the atom
                     atoms.push(Atom {
