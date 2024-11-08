@@ -20,7 +20,8 @@ pub fn main() -> bool {
 ";
 
 fn main() {
-    //benchmark();
+    benchmark();
+    /*
     let mut code: Vec<String> = CODE.split('\n').map(|x| x.to_string()).collect();
     let mut h = synoptic::from_extension("rs", 4).unwrap();
     h.run(&code);
@@ -34,6 +35,7 @@ fn main() {
         }
         println!();
     }
+    */
 }
 
 fn colour(kind: &str) -> Fg {
@@ -80,9 +82,9 @@ fn benchmark() {
     println!("Initialisation time: {:?}", end - start);
 
     let mut file  = std::fs::read_to_string("/home/luke/dev/rust/kaolinite/demos/8.rs").unwrap().split('\n').map(|x| x.to_string()).collect::<Vec<String>>();
-    let viewport_file1 = file.iter().take(10).cloned().collect();
-    let viewport_file2 = file.iter().take(100).cloned().collect();
-    let viewport_file3 = file.iter().take(1000).cloned().collect();
+    let viewport_file1 = file.iter().take(10).cloned().collect::<Vec<String>>();
+    let viewport_file2 = file.iter().take(100).cloned().collect::<Vec<String>>();
+    let viewport_file3 = file.iter().take(1000).cloned().collect::<Vec<String>>();
 
     let start = Instant::now();
     h.run(&viewport_file1);

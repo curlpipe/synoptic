@@ -3,6 +3,7 @@ pub use regex::Regex;
 use std::collections::HashMap;
 use std::ops::Range;
 use std::cmp::Ordering;
+use char_index::IndexedChars;
 
 /// Represents a point in a 2d space
 #[derive(Debug, Clone, PartialEq)]
@@ -454,24 +455,23 @@ impl Highlighter {
 
     /// This process will turn a line into a vector of atoms
     fn atomize(&self, line: &str) -> Vec<Atom> {
+        let line = IndexedChars::new(line);
         let mut atoms = vec![];
         // For each atom definition
         for def in &self.atom_def {
-            let occurances = find_all(&def.exp, line, self.tab_width);
+            let occurances = find_all(&def.exp, line.as_str(), self.tab_width);
             // Register all occurances of any atom
             for x in occurances {
                 if !x.is_empty() {
                     // Work out how many backslashes there are behind this atom (for escaping)
                     let mut backslash_count = 0;
-                    // Take atoms and calculate backslashes (up to 10)
-                    let check_to = 10;
-                    let mut before_atom: Vec<char> = line
-                        .chars()
-                        .skip(x.start.saturating_sub(check_to))
-                        .take(check_to)
-                        .collect();
-                    while let Some('\\') = before_atom.pop() {
-                        backslash_count += 1;
+                    let range = (0..x.start).rev();
+                    for idx in range {
+                        if let Some('\\') = line.get_char(idx) {
+                            backslash_count += 1;
+                        } else {
+                            break;
+                        }
                     }
                     // Push out the atom
                     atoms.push(Atom {

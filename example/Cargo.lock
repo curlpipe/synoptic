@@ -12,6 +12,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "char_index"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10ef8669476802b7127a0a97612a0c34113e949ee65c695e4ac259f1f49aaa25"
+
+[[package]]
 name = "example"
 version = "0.1.0"
 dependencies = [
@@ -68,8 +74,9 @@ checksum = "e5ea92a5b6195c6ef2a0295ea818b312502c6fc94dde986c5553242e18fd4ce2"
 
 [[package]]
 name = "synoptic"
-version = "2.0.0"
+version = "2.2.7"
 dependencies = [
+ "char_index",
  "if_chain",
  "regex",
  "unicode-width",
@@ -77,6 +84,6 @@ dependencies = [
 
 [[package]]
 name = "unicode-width"
-version = "0.1.10"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
+checksum = "1fc81956842c57dac11422a97c3b8195a1ff727f06e85c84ed2e8aa277c9a0fd"
