@@ -13,6 +13,7 @@ categories = ["text-processing"]
 [dependencies]
 char_index = "0.1.4"
 if_chain = "1.0.2"
+nohash-hasher = "0.2.0"
 regex = "1.8.4"
 unicode-width = "0.2"
 

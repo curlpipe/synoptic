@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::ops::Range;
 use std::cmp::Ordering;
 use char_index::IndexedChars;
+use nohash_hasher::NoHashHasher;
+use std::hash::BuildHasherDefault;
 
 /// Represents a point in a 2d space
 #[derive(Debug, Clone, PartialEq)]
@@ -607,22 +609,29 @@ impl Highlighter {
 
 /// This will find all occurances of a string in a document (and return character indices)
 pub fn find_all(exp: &Regex, target: &str, tab_width: usize) -> Vec<Range<usize>> {
+    let mapping = create_mapping(target, tab_width);
     exp.captures_iter(target)
         // Get last capture
         .map(|c| c.iter().flatten().collect::<Vec<_>>())
         .map(|mut c| c.pop().unwrap())
         // Extract end and start values
-        .map(|m| (m.start(), m.end()))
-        // Gather character counts
-        .map(|(s, e)| (char_len(&target[0..s], tab_width), char_len(&target[s..e], tab_width)))
-        // Create character range
-        .map(|(s, l)| s..(s + l))
+        .map(|m| mapping[&m.start()]..mapping[&m.end()])
         .collect()
 }
 
-/// Finds out the length of a string in characters, being mindful of tab width
-fn char_len(string: &str, tab_width: usize) -> usize {
-    string.chars().count() + string.matches('\t').count() * tab_width.saturating_sub(1)
+/// HashMap<byte_idx, char_idx>
+fn create_mapping(target: &str, tab_width: usize) -> HashMap::<usize, usize, BuildHasherDefault<NoHashHasher<usize>>> {
+    let mut result: HashMap::<usize, usize, BuildHasherDefault<NoHashHasher<usize>>> =
+        HashMap::with_capacity_and_hasher(target.len(), BuildHasherDefault::default());
+    result.insert(0, 0);
+    let mut acc_byte = 0;
+    let mut acc_char = 0;
+    for c in target.chars() {
+        acc_byte += c.len_utf8();
+        acc_char += if c == '\t' { tab_width } else { 1 };
+        result.insert(acc_byte, acc_char);
+    }
+    result
 }
 
 /// Utility function to determine the width of a string, with variable tab width
