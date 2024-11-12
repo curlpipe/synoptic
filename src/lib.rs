@@ -620,7 +620,7 @@ pub fn find_all(exp: &Regex, target: &str, tab_width: usize) -> Vec<Range<usize>
 }
 
 /// HashMap<byte_idx, char_idx>
-fn create_mapping(target: &str, tab_width: usize) -> HashMap::<usize, usize, BuildHasherDefault<NoHashHasher<usize>>> {
+pub fn create_mapping(target: &str, tab_width: usize) -> HashMap::<usize, usize, BuildHasherDefault<NoHashHasher<usize>>> {
     let mut result: HashMap::<usize, usize, BuildHasherDefault<NoHashHasher<usize>>> =
         HashMap::with_capacity_and_hasher(target.len(), BuildHasherDefault::default());
     result.insert(0, 0);
