@@ -494,6 +494,7 @@ impl Highlighter {
 
     fn tokenize(&mut self) {
         self.tokenize_state = None;
+        self.tokenize_interp = false;
         self.line_ref = vec![];
         self.atoms.iter().enumerate().for_each(|_| self.line_ref.push(vec![]));
         self.tokens = vec![];
