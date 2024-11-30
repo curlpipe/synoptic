@@ -6,6 +6,7 @@ use std::cmp::Ordering;
 use char_index::IndexedChars;
 use nohash_hasher::NoHashHasher;
 use std::hash::BuildHasherDefault;
+use std::sync::OnceLock;
 
 /// Represents a point in a 2d space
 #[derive(Debug, Clone, PartialEq)]
@@ -738,1057 +739,46 @@ pub fn find_tok_index(input: &[TokOpt], disp_idx: usize, tab_width: usize) -> Op
 
 /// Function to obtain a syntax highlighter based on a file extension
 pub fn from_extension(ext: &str, tab_width: usize) -> Option<Highlighter> {
-    let mut result = Highlighter::new(tab_width);
-    match ext.to_lowercase().as_str() {
-        "rs" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "(//.*)$");
-            result.bounded("string", "r#\"", "\"#", true);
-            result.bounded("string", "r\"", "\"", true);
-            result.bounded("string", "#\"", "\"#", true);
-            result.bounded("string", "\"", "\"", true);
-            result.bounded("attribute", r"\#\[", r"\]", false);
-            result.bounded("attribute", r"\#!\[", r"\]", false);
-            result.keyword("namespace", "([a-z_][A-Za-z0-9_]*)::");
-            add_keywords(&mut result, &[
-                "as", "break", "const", "continue", "char", "crate", "else", "enum", "extern",
-                "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move",
-                "mut", "pub", "ref", "return", "self", "static", "struct", "super", "trait",
-                "type", "unsafe", "use", "where", "while", "async", "await", "dyn",
-                "abstract", "become", "box", "do", "final", "macro", "override", "priv",
-                "typeof",  "unsized", "virtual", "yield", "try", "'static", "u8", "u16", "u32",
-                "u64", "u128", "usize", "i8", "i16", "i32", "i64", "i128", "isize", "f32",
-                "f64", "String", "Vec", "str", "Some", "bool", "None", "Box", "Result",
-                "Option", "Ok", "Err", "Self", "std"
-            ]);
-            bulk_add(&mut result, "operator", &[
-                "&&", r"\|\|", "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=", "\\-=",
-                "\\*=", "\\\\=", "==", "!=", "\\?", ">=", "<=", "<", ">", "!",
-            ]);
-            bulk_add(&mut result, "character", &[
-                r"'[^\\]'", "'\\\\.'"
-            ]);
-            bulk_add(&mut result, "digit", &[
-                "\\b(\\d+.\\d+|\\d+)", "\\b(\\d+.\\d+(?:f32|f64))"
-            ]);
-            bulk_add(&mut result, "boolean", &[
-                "\\b(true)\\b", "\\b(false)\\b"
-            ]);
-            bulk_add(&mut result, "function", &[
-                "fn\\s+([a-z_][A-Za-z0-9_]*)\\s*\\(",
-                "fn\\s+([a-z_][A-Za-z0-9_]*)\\s*<.*>\\s*\\(",
-                "\\.([a-z_][A-Za-z0-9_]*)\\s*\\(",
-                "([a-z_][A-Za-z0-9_]*)\\s*\\(",
-            ]);
-            bulk_add(&mut result, "struct", &[
-                "(?:trait|enum|struct|impl)\\s+([A-Z][A-Za-z0-9_]*)\\s*",
-                "impl(?:<.*?>|)\\s+([A-Z][A-Za-z0-9_]*)",
-                "([A-Z][A-Za-z0-9_]*)::",
-                "([A-Z][A-Za-z0-9_]*)\\s*\\(",
-                "impl.*for\\s+([A-Z][A-Za-z0-9_]*)",
-                "::\\s*([a-z_][A-Za-z0-9_]*)\\s*\\(",
-            ]);
-            bulk_add(&mut result, "macro", &[
-                "\\b([a-z_][a-zA-Z0-9_]*!)",
-                "(\\$[a-z_][A-Za-z0-9_]*)",
-            ]);
-            bulk_add(&mut result, "reference", &[
-                "&", "&str", "&mut", "&self",
-                "&i8", "&i16", "&i32", "&i64", "&i128", "&isize",
-                "&u8", "&u16", "&u32", "&u64", "&u128", "&usize",
-                "&f32", "&f64",
-            ]);
-        }
-        "asm" | "s" => {
-            result.keyword("function", "([a-zA-Z_]+)\\:$");
-            result.keyword("comment", "(;.*)$");
-            result.keyword("digit", "\\b((?:0x)?\\d+.\\d+|\\d+)");
-            result.bounded("string", "\"", "\"", true);
-            add_keywords_case_indep(&mut result, &[
-                "mov", "add", "sub", "jmp", "call", "ret", "bss",
-                "data", "text", "section", "globl", "extern", "db",
-                "eax", "ebx", "ecx", "edx", "esp", "ebp", "int", "xor",
-                "imul", "inc", "jle", "cmp", "global", "section", "resb"
-            ]);
-        }
-        "py" | "pyw" => {
-            result.keyword("comment", "(#.*)$");
-            result.bounded("string", "\"\"\"", "\"\"\"", true);
-            result.bounded("string", "\'\'\'", "\'\'\'", true);
-            result.bounded("string", "b\"", "\"", true);
-            result.bounded("string", "r\"", "\"", true);
-            result.bounded_interp("string", "f\"", "\"", "\\{", "\\}", true);
-            result.bounded("string", "\"", "\"", true);
-            result.bounded("string", "b\'", "\'", true);
-            result.bounded("string", "r\'", "\'", true);
-            result.bounded_interp("string", "f\'", "\'", "\\{", "\\}", true);
-            result.bounded("string", "\'", "\'", true);
-            add_keywords(&mut result, &[
-                "and", "as", "assert", "break", "class", "continue",
-                "def", "del", "elif", "else", "except", "exec",
-                "finally", "for", "from", "global", "if", "import",
-                "in", "is", "lambda", "not", "or", "pass", "print",
-                "raise", "return", "try", "while", "with", "yield",
-                "str", "bool", "int", "tuple", "list", "dict", "tuple",
-                "len", "None", "input", "type", "set", "range", "enumerate",
-                "open", "iter", "min", "max", "dir", "self", "isinstance",
-                "help", "next", "super", "match", "case",
-            ]);
-            result.keyword("attribute", "@.*$");
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("struct", "class\\s+([A-Za-z0-9_]+)");
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"(\s//\s)", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-            ]);
-            bulk_add(&mut result, "boolean", &[
-                "\\b(True)\\b", "\\b(False)\\b",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "def\\s+([a-z_][A-Za-z0-9_]*)",
-                "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-        }
-        "rb" | "ruby" => {
-            result.keyword("comment", "(#.*)$");
-            result.bounded("comment", "=begin", "=end", false);
-            result.bounded_interp("string", "\"", "\"", "#\\{", "\\}", true);
-            result.bounded("string", "\'", "\'", true);
-            result.keyword("string", r"(\:[a-zA-Z_]+)");
-            add_keywords(&mut result, &[
-                "__ENCODING__", "__LINE__", "__FILE__", "BEGIN", "END", "alias", "and",
-                "begin", "break", "case", "class", "def", "defined?", "do", "else",
-                "elsif", "end", "ensure", "for", "if", "in", "module", "next",
-                "nil", "not", "or", "redo", "rescue", "retry", "return", "self", "super",
-                "then", "undef", "unless", "until", "when", "while", "yield",
-                "extend", "include", "attr_reader", "attr_writer", "attr_accessor",
-            ]);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("struct", "class\\s+([A-Za-z0-9_]+)");
-            bulk_add(&mut result, "operator", &[
-                "!!", "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=", "\\-=", 
-                "\\*=", "\\\\=", "==", "!=", "\\?", ">=", "<=", "<", ">",
-                "&&", "\\|\\|", "!", "&", "\\|", "\\^", "%",
-            ]);
-            bulk_add(&mut result, "boolean", &[
-                "\\b(true)\\b", "\\b(false)\\b",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "def\\s+([a-z_][A-Za-z0-9_]*)",
-                "^\\s*([a-z_][A-Za-z0-9_]*)\\s+[^=]",
-                "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-        }
-        "cgi" | "pm" => {
-            result.keyword("comment", "(#.*)$");
-            result.bounded_interp("string", "\"", "\"", "#\\{", "\\}", true);
-            result.bounded("string", "(?:m|s)/", "/", true);
-            result.bounded("string", "\'", "\'", true);
-            result.keyword("string", r"(\:[a-zA-Z_]+)");
-            add_keywords(&mut result, &[
-                "if", "else", "elsif", "unless", "while", "for", "foreach", "until",
-                "do", "next", "last", "goto", "return", "sub", "my", "local", "our",
-                "package", "use", "require", "import", "undef", "and", "or", "not",
-                "eq", "ne", "lt", "le", "gt", "ge", "cmp", "qw",
-                "scalar", "array", "hash", "undef", "undef", "ref", "bless",
-                "glob", "filehandle", "code", "regexp", "integer", "float", "string",
-                "boolean", "reference", "die"
-            ]);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)");
-            bulk_add(&mut result, "operator", &[
-                "!!", "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=", "\\-=", 
-                "\\*=", "\\\\=", "==", "!=", "\\?", ">=", "<=", "<", ">", "\\$",
-                "&&", "\\|\\|", "!", "&", "\\|", "\\^", "(?:\\\\)?%", "\\\\@",
-            ]);
-            bulk_add(&mut result, "boolean", &[
-                "\\b(true)\\b", "\\b(false)\\b",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "sub\\s+([a-z_][A-Za-z0-9_]*)",
-                "^\\s*([a-z_][A-Za-z0-9_]*)\\s+[^=]",
-                "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-        }
-        "lua" => {
-            result.bounded("comment", r"--\[\[", r"\]\]--", false);
-            result.keyword("comment", "(--.*)$");
-            result.bounded("string", "\"", "\"", true);
-            result.bounded("string", "\'", "\'", true);
-            result.bounded("string", "\\[\\[", "\\]\\]", true);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
-            bulk_add(&mut result, "function", &[
-                "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", r"(\.\.)",
-                r"(==)", r"(~=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(#)",
-                r"(<<)", r"(>>)", r"\b(and)\b", r"\b(or)\b", r"\b(not)\b",
-            ]);
-            add_keywords(&mut result, &[
-                "break", "do", "else", "elseif", "end", "false", "for", "function",
-                "if", "in", "local", "nil", "repeat", "return", "then", "true",
-                "until", "while", "self",
-            ]);
-        }
-        "r" | "rproj" => {
-            result.keyword("comment", "(#.*)$");
-            result.bounded("string", "\"", "\"", true);
-            result.bounded("string", "\'", "\'", true);
-            bulk_add(&mut result, "boolean", &[
-                "\\b(FALSE)\\b", "\\b(TRUE)\\b",
-            ]);
-            add_keywords(&mut result, &[
-                "if", "else", "repeat", "while", "function", "for", "in",
-                "next", "break", "TRUE", "FALSE", "NULL", "Inf", "NaN",
-                "NA", "NA_integer_", "NA_real_", "NA_complex_", "NA_character_",
-                r"\.\.\.",
-            ]);
-            result.keyword("attribute", "@.*$");
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("struct", "class\\s+([A-Za-z0-9_]+)");
-            bulk_add(&mut result, "operator", &[
-                r"<-", r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"(\s//\s)", r"(&)",
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", r"(\$)", r"(|)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(\?)", 
-            ]);
-            bulk_add(&mut result, "function", &[
-                "def\\s+([a-z_][A-Za-z0-9_]*)",
-                "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-        }
-        "go" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "(//.*)$");
-            result.bounded("string", "\"", "\"", true);
-            result.bounded("string", "`", "`", true);
-            bulk_add(&mut result, "character", &[
-                r"'[^\\]'", "'\\\\.'"
-            ]);
-            add_keywords(&mut result, &[
-                "break", "case", "chan", "const", "continue", "default", "defer",
-                "else", "fallthrough", "for", "func", "go", "goto", "if", "import",
-                "interface", "map", "package", "range", "return", "select", "struct",
-                "switch", "type", "var",
-                "bool", "byte", "complex64", "complex128", "error", "float32", "float64",
-                "int", "int8", "int16", "int32", "int64", "rune", "string",
-            ]);
-            bulk_add(&mut result, "operator", &[
-                ":=", "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=", "\\-=", 
-                "\\*=", "\\\\=", "==", "!=", "\\?", ">=", "<=", "<", ">",
-            ]);
-            bulk_add(&mut result, "digit", &[
-                "\\b(\\d+.\\d+|\\d+)", "\\b(\\d+.\\d+(?:f32|f64))"
-            ]);
-            bulk_add(&mut result, "boolean", &[
-                "\\b(true)\\b", "\\b(false)\\b"
-            ]);
-            bulk_add(&mut result, "function", &[
-                "func\\s+([A-Za-z0-9_]+)\\s*\\(",
-                "\\.([A-Za-z0-9_]+)\\s*\\(",
-                "([A-Za-z0-9_]+)\\s*\\(",
-            ]);
-            bulk_add(&mut result, "reference", &[
-                "&"
-            ]);
-        }
-        "js" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "//.*$");
-            result.bounded("string", "r\"", "\"", true);
-            result.bounded("string", "f\"", "\"", true);
-            result.bounded("string", "\"", "\"", true);
-            result.bounded("string", "r\'", "\'", true);
-            result.bounded("string", "f\'", "\'", true);
-            result.bounded("string", "\'", "\'", true);
-            result.bounded_interp("string", "r`", "`", "\\$\\{", "\\}", true);
-            result.bounded_interp("string", "f`", "`", "\\$\\{", "\\}", true);
-            result.bounded_interp("string", "`", "`", "\\$\\{", "\\}", true);
-            result.bounded("string", "/", "/", true);
-            add_keywords(&mut result, &[
-                "abstract", "arguments", "await", "boolean", "break", "byte",
-                "case", "catch", "char", "class", "const", "continue", "debugger",
-                "default", "delete", "do", "double", "else", "enum", "eval",
-                "export", "extends", "final", "finally", "float", "for", "of",
-                "function", "goto", "if", "implements", "import", "in", "instanceof",
-                "int", "interface", "let", "long", "native", "new", "null", "package",
-                "private", "protected", "public", "return", "short", "static",
-                "super", "switch", "synchronized", "this", "throw", "throws",
-                "transient", "try", "typeof", "var", "void", "volatile", "console",
-                "while", "with", "yield", "undefined", "NaN", "-Infinity", "Infinity",
-            ]);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("struct", "class\\s+([A-Za-z0-9_]+)");
-            bulk_add(&mut result, "boolean", &[
-                "\\b(true)\\b", "\\b(false)\\b",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "function\\s+([a-z_][A-Za-z0-9_]*)",
-                "\\b([a-z_][A-Za-z0-9_]*)\\s*\\(",
-                "\\.([a-z_][A-Za-z0-9_]*)\\s*",
-            ]);
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
-            ]);
-        }
-        "ts" | "tsx" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "//.*$");
-            result.bounded("string", "r\"", "\"", true);
-            result.bounded("string", "f\"", "\"", true);
-            result.bounded("string", "\"", "\"", true);
-            result.bounded("string", "r\'", "\'", true);
-            result.bounded("string", "f\'", "\'", true);
-            result.bounded("string", "\'", "\'", true);
-            result.bounded_interp("string", "r`", "`", "\\$\\{", "\\}", true);
-            result.bounded_interp("string", "f`", "`", "\\$\\{", "\\}", true);
-            result.bounded_interp("string", "`", "`", "\\$\\{", "\\}", true);
-            result.bounded("string", "/", "/", true);
-            add_keywords(&mut result, &[
-               "abstract", "any", "as", "asserts", "boolean", "break", "case", "catch",
-               "class", "const", "constructor", "continue", "debugger", "declare",
-                "default", "delete", "do", "else", "enum", "export", "extends", "false",
-                "finally", "for", "from", "function", "get", "if", "implements", "import",
-                "in", "infer", "instanceof", "interface", "is", "keyof", "let", "module",
-                "namespace", "never", "new", "null", "number", "object", "package", "private",
-                "protected", "public", "readonly", "require", "global", "return", "set",
-                "static", "string", "super", "switch", "symbol", "this", "throw", "true",
-                "try", "type", "typeof", "undefined", "unique", "unknown", "var", "void",
-                "while", "with", "yield"
-            ]);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("struct", "class\\s+([A-Za-z0-9_]+)");
-            bulk_add(&mut result, "boolean", &[
-                "\\b(true)\\b", "\\b(false)\\b",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "function\\s+([a-z_][A-Za-z0-9_]*)",
-                "\\b([a-z_][A-Za-z0-9_]*)\\s*\\(",
-                "\\.([a-z_][A-Za-z0-9_]*)\\s*",
-            ]);
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
-            ]);
-        }
-        "dart" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "//.*$");
-            result.bounded("string", "\"\"\"", "\"\"\"", true);
-            result.bounded("string", "\'\'\'", "\'\'\'", true);
-            result.bounded_interp("string", "\"", "\"", "\\$\\{", "\\}", true);
-            result.bounded("string", "\'", "\'", true);
-            add_keywords(&mut result, &[
-                "abstract", "as", "assert", "async", "await", "break", "case", "catch",
-                "class", "const", "continue", "covariant", "default", "deferred", "do",
-                "dynamic", "else", "enum", "export", "extends", "extension", "external",
-                "factory", "false", "final", "finally", "for", "Function", "get", "hide",
-                "if", "implements", "import", "in", "inout", "interface", "is", "late",
-                "library", "mixin", "new", "null", "on", "operator", "out", "part",
-                "required", "rethrow", "return", "set", "show", "static", "super", "switch",
-                "sync", "this", "throw", "true", "try", "typedef", "var", "void", "while",
-                "with", "yield", "int", "double", "num", "string",
-            ]);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]+)");
-            bulk_add(&mut result, "boolean", &[
-                "\\b(true)\\b", "\\b(false)\\b",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "\\b([a-z_][A-Za-z0-9_]*)(?:<[A-Za-z_]*>)?\\s*\\(",
-                "\\.([a-z_][A-Za-z0-9_]*)\\s*",
-            ]);
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", "~/",
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", "\\?",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", "\\?\\?",
-            ]);
-        }
-        "c" | "h" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "(//.*)$");
-            result.bounded("string", "\"", "\"", true);
-            add_keywords(&mut result, &[
-                "auto", "break", "case", "char", "const", "continue", "default",
-                "do", "double", "else", "enum", "extern", "float", "for", "goto",
-                "if", "int", "long", "register", "return", "short", "signed",
-                "sizeof", "static", "struct", "switch", "typedef", "union",
-                "unsigned", "void", "volatile", "while", "printf", "fscanf",
-                "scanf", "fputsf", "exit", "stderr", "malloc", "calloc", "bool",
-                "realloc", "free", "strlen", "size_t",
-            ]);
-            result.keyword("struct", "\\}\\s+([A-Za-z0-9_]+)\\s*");
-            result.keyword("attribute", "^\\s*(#.*?)\\s");
-            result.keyword("header", "(<.*?>)");
-            bulk_add(&mut result, "digit", &[
-                "\\b(\\d+.\\d+|\\d+)",
-                "\\b(\\d+.\\d+(?:f|))",
-            ]);
-            bulk_add(&mut result, "character", &[
-                r"'[^\\]'", "'\\\\.'"
-            ]);
-            bulk_add(&mut result, "boolean", &[
-                "\\b(true)\\b", "\\b(false)\\b",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "(int|bool|void|char|double|long|short|size_t)\\s+([a-z_][A-Za-z0-9_]*)\\s*\\(",
-                "\\b([a-z_][A-Za-z0-9_]*)\\s*\\(",
-            ]);
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
-            ]);
-        }
-        "cpp" | "hpp" | "c++" | "cxx" | "cc" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "(//.*)$");
-            result.bounded("string", "\"", "\"", true);
-            add_keywords(&mut result, &[
-                "alignas", "alignof", "and", "and_eq", "asm", "auto",
-                "bitand", "bitor", "bool", "break", "case", "catch", "char",
-                "char8_t", "char16_t", "char32_t", "class", "compl", "concept",
-                "const", "consteval", "constexpr", "constinit", "const_cast",
-                "continue", "co_await", "co_return", "co_yield", "decltype",
-                "default", "delete", "do", "double", "dynamic_cast", "else",
-                "enum", "explicit", "export", "extern", "false", "float", "for",
-                "friend", "goto", "if", "inline", "int", "long", "mutable",
-                "namespace", "new", "noexcept", "not", "not_eq", "nullptr",
-                "operator", "or", "or_eq", "private", "protected", "public",
-                "register", "reinterpret_cast", "requires", "return", "short",
-                "signed", "sizeof", "static", "static_assert", "static_cast",
-                "struct", "switch", "template", "this", "thread_local",
-                "throw", "true", "try", "typedef", "typeid", "typename",
-                "union", "unsigned", "using", "virtual", "void", "volatile",
-                "wchar_t", "while", "xor", "xor_eq", "std", "string",
-            ]);
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)");
-            result.keyword("attribute", "^\\s*(#[a-zA-Z_]+)\\s*");
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
-                r"(|)", r"(&)", r"(^)", r"(~)",
-            ]);
-            result.keyword("header", "(<.*?>)");
-            bulk_add(&mut result, "digit", &[
-                "\\b(\\d+.\\d+|\\d+)",
-                "\\b(\\d+.\\d+(?:f|))",
-            ]);
-            bulk_add(&mut result, "character", &[
-                r"'[^\\]'", "'\\\\.'"
-            ]);
-            bulk_add(&mut result, "boolean", &[
-                "\\b(true)\\b", "\\b(false)\\b",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "(int|bool|void|char|double|long|short|size_t)\\s+([a-z_][A-Za-z0-9_]*)\\s*\\(",
-                "\\b([a-z_][A-Za-z0-9_]*)\\s*\\(",
-            ]);
-        }
-        "cs" | "csproj" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "(//.*)$");
-            result.bounded("string", "\"", "\"", true);
-            add_keywords(&mut result, &[
-                "abstract", "as", "base", "bool", "break", "byte", "case", "catch",
-                "char", "checked", "class", "const", "continue", "decimal", "default",
-                "delegate", "do", "double", "else", "enum", "event", "explicit",
-                "extern", "false", "finally", "fixed", "float", "for", "foreach",
-                "goto", "if", "implicit", "in", "int", "interface", "internal",
-                "is", "lock", "long", "namespace", "new", "null", "object", "operator",
-                "out", "override", "params", "private", "protected", "public", "readonly",
-                "ref", "return", "sbyte", "sealed", "short", "sizeof", "stackalloc",
-                "static", "string", "struct", "switch", "this", "throw", "true", "try",
-                "typeof", "uint", "ulong", "unchecked", "unsafe", "ushort", "using",
-                "using", "static", "virtual", "void", "volatile", "while", "add",
-                "alias", "ascending", "async", "await", "by", "descending", "dynamic",
-                "equals", "from", "get", "global", "group", "into", "join", "let",
-                "nameof", "on", "orderby", "partial", "remove", "select", "set",
-                "unmanaged", "value", "var", "when", "where", "with", "yield"
-            ]);
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)");
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
-                r"(|)", r"(&)", r"(^)", r"(~)",
-            ]);
-            bulk_add(&mut result, "digit", &[
-                "\\b(\\d+.\\d+|\\d+)",
-                "\\b(\\d+.\\d+(?:f|m|))",
-            ]);
-            bulk_add(&mut result, "character", &[
-                r"'[^\\]'", "'\\\\.'"
-            ]);
-            bulk_add(&mut result, "boolean", &[
-                "\\b(true)\\b", "\\b(false)\\b",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "(int|bool|void|char|double|long|short|size_t)\\s+([a-z_][A-Za-z0-9_]*)\\s*\\(",
-                "\\b([a-z_][A-Za-z0-9_]*)\\s*\\(",
-            ]);
-        }
-        "swift" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "(//.*)$");
-            result.bounded_interp("string", "#\"", "\"#", "\\\\#?\\(", "\\)", true);
-            result.bounded("string", "\"\"\"", "\"\"\"", true);
-            result.bounded_interp("string", "\"", "\"", "\\\\\\(", "\\)", true);
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
-            add_keywords(&mut result, &[
-                "associatedtype", "class", "deinit", "enum", "extension",
-                "fileprivate", "func", "import", "init", "inout", "internal",
-                "let", "open", "operator", "private", "protocol", "public",
-                "static", "struct", "subscript", "typealias", "var", "break",
-                "case", "continue", "default", "defer", "do", "else", "fallthrough",
-                "for", "guard", "if", "in", "repeat", "return", "switch", "where",
-                "while", "as", "catch", "throw", "try", "Any", "false", "is", "nil",
-                "super", "self", "Self", "true", "associativity", "convenience",
-                "dynamic", "didSet", "final", "get", "infix", "indirect", "lazy",
-                "left", "mutating", "none", "nonmutating", "optional", "override",
-                "postfix", "precedence", "prefix", "Protocol", "required", "right",
-                "set", "Type", "unowned", "weak", "willSet", "Int", "String", 
-                "Double", "Optional", "endif",
-            ]);
-            bulk_add(&mut result, "operator", &[
-                "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=", "\\-=", 
-                "\\*=", "\\\\=", "==", "!=", "\\?", ">=", "<=", "<", ">", "!"
-            ]);
-            bulk_add(&mut result, "digit", &[
-                "\\b(\\d+.\\d+|\\d+)", "\\b(\\d+.\\d+(?:f32|f64))"
-            ]);
-            bulk_add(&mut result, "boolean", &[
-                "\\b(true)\\b", "\\b(false)\\b"
-            ]);
-            bulk_add(&mut result, "function", &[
-                "func\\s+([a-z_][A-Za-z0-9_]*)\\s*(?:\\(|<)",
-                "\\.([a-z_][A-Za-z0-9_]*)\\s*\\(",
-                "([a-z_][A-Za-z0-9_]*)\\s*\\(",
-            ]);
-        }
-        "json" => {
-            result.bounded("string", "\"", "\"", true);
-            result.keyword("keyword", r"\b(null)\b");
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("boolean", "\\b(true|false)\\b");
-        }
-        "kt" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "(//.*)$");
-            result.bounded("string", "\"\"\"", "\"\"\"", true);
-            result.bounded("string", "\"", "\"", true);
-            result.keyword("attribute", r"@\w+");
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
-            result.keyword("boolean", "\\b(true|false)\\b");
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
-            ]);
-            add_keywords(&mut result, &[
-                "abstract", "actual", "annotation", "companion", "constructor",
-                "enum", "external", "expect", "final", "fun", "inline", "inner",
-                "interface", "internal", "private", "protected", "public", "sealed",
-                "suspend", "tailrec", "vararg", "as", "break", "class", "continue",
-                "do", "else", "false", "for", "if", "in", "is", "null", "object", "infix",
-                "package", "return", "super", "this", "throw", "true", "try", "data",
-                "typealias", "typeof", "val", "when", "while", "var", "operator", "override",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\{",
-            ]);
-        }
-        "class" | "java" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "(//.*)$");
-            result.bounded("string", "\"", "\"", true);
-            result.keyword("attribute", r"@\w+");
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
-            result.keyword("boolean", "\\b(true|false)\\b");
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
-            ]);
-            add_keywords(&mut result, &[
-                "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
-                "const", "continue", "default", "do", "double", "else", "enum", "extends", "final",
-                "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int",
-                "interface", "long", "native", "new", "package", "private", "protected", "public",
-                "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this",
-                "throw", "throws", "transient", "try", "var", "void", "volatile", "while", "null",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-        }
-        "vb" => {
-            result.keyword("comment", "('.*)$");
-            result.bounded("string", "\"", "\"", true);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            bulk_add(&mut result, "function", &[
-                "\\b([A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
-            ]);
-            add_keywords(&mut result, &[
-                "AddHandler", "AddressOf", "Alias", "And", "AndAlso", "Ansi", "As", "Assembly",
-                "Auto", "Boolean", "ByRef", "Byte", "ByVal", "Call", "Case", "Catch", "CBool",
-                "CByte", "CChar", "CDate", "CDec", "CDbl", "Char", "CInt", "Class", "CLng",
-                "CObj", "Const", "CShort", "CSng", "CStr", "CType", "Date", "Decimal", "Declare",
-                "Default", "Delegate", "Dim", "DirectCast", "Do", "Double", "Each", "Else",
-                "ElseIf", "End", "Enum", "Erase", "Error", "Event", "Exit", "False", "Finally",
-                "For", "Friend", "Function", "Get", "GetType", "GoSub", "GoTo", "Handles",
-                "If", "Implements", "Imports", "In", "Inherits", "Integer", "Interface", "Is",
-                "IsNot", "Let", "Lib", "Like", "Long", "Loop", "Me", "Mod", "Module", "MustInherit",
-                "MustOverride", "MyBase", "MyClass", "Namespace", "Narrowing", "New", "Next",
-                "Not", "Nothing", "NotInheritable", "NotOverridable", "Object", "Of", "On",
-                "Operator", "Option", "Optional", "Or", "OrElse", "Out", "Overloads", "Overridable",
-                "Overrides", "ParamArray", "Partial", "Private", "Property", "Protected", "Public",
-                "RaiseEvent", "ReadOnly", "ReDim", "REM", "RemoveHandler", "Resume", "Return",
-                "SByte", "Select", "Set", "Shadows", "Shared", "Short", "Single", "Static", "Step",
-                "Stop", "String", "Structure", "Sub", "SyncLock", "Then", "Throw", "To", "True",
-                "Try", "TryCast", "TypeOf", "UInteger", "ULong", "UShort", "Using", "Variant",
-                "Wend", "When", "While", "Widening", "With", "WithEvents", "WriteOnly", "Xor", "Console",
-            ]);
-        }
-        "m" => {
-            result.bounded("comment", "%\\{", "%\\}", true);
-            result.keyword("comment", "(%.*)$");
-            result.bounded("string", "\'", "\'", true);
-            result.keyword("boolean", "\\b(true|false)\\b");
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
-            ]);
-            add_keywords(&mut result, &[
-                "break", "case", "catch", "classdef", "continue", "else", "elseif",
-                "end", "for", "function", "global", "if", "otherwise", "parfor", "persistent",
-                "return", "spmd", "switch", "try", "while", "inf", "nan",
-                "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64",
-                "single", "double", "char", "string", "cell", "struct", "table", "datetime",
-                "properties", "NaN", "max", "min", "length", "sort", "sum", "prod", "mode",
-                "median", "mean", "std", "pi", "randi", "randn", "rand", "clf", "shg", "close",
-                "path", "addpath", "rmpath", "cd", "grid", "on", "axis", "square", "equal", "off",
-                "hold", "help", "doc", "lookfor", "profile", "viewer", "clc", "diary", "ctrl-c",
-                "who", "whos", "clear", "load", "format", "short", "long", "bank",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-        }
-        "php" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "(//.*)$");
-            result.keyword("comment", "(#.*)$");
-            result.bounded_interp("string", "\"", "\"", "\\{", "\\}", true);
-            result.bounded_interp("string", "\"", "\"", "\\$\\{", "\\}", true);
-            result.bounded("string", "\'", "\'", true);
-            result.keyword("boolean", "\\b(true|false|TRUE|FALSE)\\b");
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
-            bulk_add(&mut result, "function", &[
-                "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-            add_keywords(&mut result, &[
-                "__halt_compiler", "abstract", "and", "array", "as", "break", "callable", "case",
-                "catch", "class", "clone", "const", "continue", "declare", "default", "die", "do",
-                "echo", "else", "elseif", "empty", "enddeclare", "endfor", "endforeach", "endif",
-                "endswitch", "endwhile", "eval", "exit", "extends", "final", "finally", "for",
-                "foreach", "function", "global", "goto", "if", "implements", "include", "include_once",
-                "instanceof", "insteadof", "interface", "isset", "list", "namespace", "new", "or",
-                "print", "private", "protected", "public", "require", "require_once", "return",
-                "static", "switch", "throw", "trait", "try", "unset", "use", "var", "while", "xor",
-                "__CLASS__", "__DIR__", "__FILE__", "__FUNCTION__", "__LINE__", "__METHOD__",
-                "__NAMESPACE__", "__TRAIT__", "null",
-            ]);
-            result.keyword("keyword", r"<\?php");
-            result.keyword("keyword", r"\?>");
-            bulk_add(&mut result, "operator", &[
-                r"(->)", r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", r"(\?)",
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(\$)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(\.)",
-            ]);
-        }
-        "scala" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.keyword("comment", "(//.*)$");
-            result.bounded_interp("string", "f\"", "\"", "\\$\\{", "\\}", true);
-            result.bounded_interp("string", "s\"", "\"", "\\$\\{", "\\}", true);
-            result.bounded("string", "\"\"\"", "\"\"\"", true);
-            result.bounded("string", "raw\"", "\"", true);
-            result.bounded("string", "\"", "\"", true);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            bulk_add(&mut result, "character", &[
-                r"'[^\\]'", "'\\\\.'"
-            ]);
-            result.keyword("boolean", "\\b(true|false)\\b");
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", 
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
-            ]);
-            add_keywords(&mut result, &[
-                "abstract", "case", "catch", "class", "def", "do", "else", "extends", "false",
-                "final", "finally", "for", "forSome", "if", "implicit", "import", "lazy", "macro",
-                "match", "new", "null", "object", "override", "package", "private", "protected",
-                "return", "sealed", "super", "this", "throw", "trait", "try", "true", "type",
-                "val", "var", "while", "with", "yield",
-                "Boolean", "Byte", "Char", "Double", "Float", "Int", "Long", "Short", "String",
-                "Unit", "Any", "AnyVal", "AnyRef", "Nothing", "Null",
-                "foreach", "map", "println", "to", "by"
-            ]);
-            bulk_add(&mut result, "function", &[
-                "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
-        }
-        "pl" | "prolog" => {
-            result.keyword("comment", "(\\%.*)$");
-            result.bounded("string", "\"", "\"", true);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("boolean", "\\b(true|false)\\b");
-            result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
-            add_keywords_no_boundary(&mut result, &[
-                ":-", "\\,", "\\.", ";", "\\->", "\\+", "=", "is", "not", "fail", "!",
-                "repeat", "call", "cut", "assert", "asserta", "assertz", "retract", "abolish",
-                "dynamic", "consult", "listing", "op", "assertions", "clauses", "predicate",
-                "query", "rule", "fact", "variable", "atom", "number", "list", "compound",
-                "ground", "callable",
-                "atom", "number", "integer", "float", "variable", "list", "compound"
-            ]);
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s",
-                r"(<)", r"(>)",
-            ]);
-            bulk_add(&mut result, "function", &[
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-            
-        }
-        "hs" => {
-            result.keyword("comment", "(\\-\\-.*)$");
-            result.bounded("comment", "\\{-", "-\\}", true);
-            result.bounded("string", "\"", "\"", true);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("boolean", "\\b(True|False)\\b");
-            bulk_add(&mut result, "character", &[
-                r"'[^\\]'", "'\\\\.'"
-            ]);
-            bulk_add(&mut result, "operator", &[
-                "->", "\\$", "`.*`", "<-", "<", ">", "&&", "\\|\\|", "\\\\", "\\:",
-                "=",
-                r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s",
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(/=)", "!", "\\.", "\\|",
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", "_",
-                r"(<<)", r"(>>)", r"(!)\S", "\\band\\b", "\\bor\\b", "\\bnot\\b",
-            ]);
-            add_keywords(&mut result, &[
-                "module", "import", "as", "qualified", "hiding", "do", "case", "of", "let", "in",
-                "if", "then", "else", "data", "type", "newtype", "deriving", "class", "instance",
-                "where", "foreign", "export", "ccall", "stdcall", "capi", "prim", "safe", "unsafe",
-                "otherwise", "head", "tail", "last", "init", "null", "length", "return",
-                "map", "filter", "foldl", "foldr", "zip", "zipWith", "take", "drop", "reverse",
-                "concat", "concatMap", "maximum", "minimum", "elem", "notElem", "sum", "array",
-                "product", "scanl", "scanr", "replicate", "cycle", "repeat", "iterate", "fst", "snd",
-                "id", "Maybe", "Either", "Bool", "Char", "String", "putStrLn", "getLine", "Just", "Nothing", "for",
-                "Int", "Integer", "Float", "Double", "Ordering", "IO", "Functor", "Applicative", "Monad"
-            ]);
-            result.keyword("function", "^[a-z][a-zA-Z0-9]*");
-        }
-        "css" => {
-            result.bounded("comment", r"/\*", r"\*/", false);
-            result.bounded("string", "\"", "\"", true);
-            add_keywords(&mut result, &[
-                "from", "to", "rotate", "none"
-            ]);
-            result.keyword("digit", r"\#[0-9a-fA-F]+");
-            result.keyword("digit", "((?:\\d+.\\d+|\\d+)(?:%|deg|px|em|rem)?)");
-            result.keyword("boolean", "\\b(true|false)\\b");
-            result.keyword("attribute", r"\.[a-zA-Z0-9\-]*");
-            result.keyword("attribute", r"\:[a-zA-Z0-9\-]*");
-            result.keyword("attribute", r"\::[a-zA-Z0-9\-]*");
-            result.keyword("attribute", r"@\w+");
-            add_keywords(&mut result, &[
-                "a", "abbr", "address", "area", "article", "aside", "audio", "b", 
-                "base", "bdi", "bdo", "blockquote", "body", "br", "button", "canvas", 
-                "caption", "cite", "code", "col", "colgroup", "data", "datalist", 
-                "dd", "del", "details", "dfn", "dialog", "div", "dl", "dt", "em", 
-                "embed", "fieldset", "figcaption", "figure", "footer", "form", 
-                "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", 
-                "html", "i", "iframe", "img", "input", "ins", "kbd", "label", "legend", 
-                "li", "link", "main", "map", "mark", "meta", "meter", "nav", "noscript", 
-                "object", "ol", "optgroup", "option", "output", "p", "param", "picture", 
-                "pre", "progress", "q", "rb", "rp", "rt", "rtc", "ruby", "s", "samp", 
-                "script", "section", "select", "slot", "small", "source", "span", "strong", 
-                "style", "sub", "summary", "sup", "table", "tbody", "td", "template", 
-                "textarea", "tfoot", "th", "thead", "time", "title", "tr", "track", 
-                "u", "ul", "var", "video", "wbr", "svg",
-            ]);
-            add_keywords(&mut result, &[
-                "-webkit-touch-callout", "-webkit-user-select", "-moz-user-select", "-ms-user-select",
-                "user-select", "transform", "border-radius", "border-right", "border-left",
-                "border-top", "border-bottom", "border", "content", "display", "height", "width", "margin-top",
-                "margin-bottom", "margin-left", "margin-right", "margin", "pointer-events", "position", "top", "transform-origin",
-                "-moz-appearance", "-webkit-appearance", "cursor", "flex-grow", "flex-shrink", "font-size",
-                "max-height", "max-width", "min-height", "min-width", "outline", "vertical-align", "background-color",
-                "background-image", "background-position", "background-repeat", "background-size", "background",
-                "animation", "border-(?:left|right|top|bottom)-color", "border-(?:left|right|top|bottom)-radius",
-                "border-(?:left|right|top|bottom)-width", "border-(?:left|right|top|bottom)-style", "align-items", "box-shadow",
-                "justify-content", "line-height", "padding", "padding-(?:left|bottom|right|top)", "font-weight",
-                "list-style", "box-sizing", "text-align", "bottom", "overflow-x", "overflow-y", "text-rendering", 
-                "-moz-osx-font-smoothing", "-webkit-font-smoothing", "text-size-adjust", "font-family", "color", 
-                "text-decoration", "font-style", "word-wrap", "white-space", "-webkit-overflow-scrolling", "clear", 
-                "float", "overflow", "!important", "text-transform", "clip", "visibility", "border-color", "opacity", 
-                "flex-wrap", "border-(?:top|bottom)-(?:left|right)-radius", "z-index", "word-break", "letter-spacing", 
-                "text-transform", "resize", "flex-direction", "order", "border-style", "border-width", "text-overflow", 
-                "flex-basis", "-ms-overflow-y", "-ms-overflow-x", "transition-duration", "transition-property", 
-                "transition-timing-function", "(flex)[^-]", "-webkit-text-decoration-style", "-apple-system", "sans-serif",
-                "left", "right", "bottom", "top", "font", "tab-size", "text-shadow"
-            ]);
-        }
-        "html" | "htm" | "xhtml" => {
-            result.bounded("comment", "<!--", "-->", false);
-            result.bounded("string", "\"", "\"", true);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("boolean", "\\b(true|false)\\b");
-            result.keyword("operator", "=");
-            bulk_add(&mut result, "tag", &[
-                "</", "/>", ">", "<!", "<"
-            ]);
-            add_html_keywords(&mut result, &[
-                "a", "abbr", "address", "area", "article", "aside", "audio", "b", 
-                "base", "bdi", "bdo", "blockquote", "body", "br", "button", "canvas", 
-                "caption", "cite", "code", "col", "colgroup", "data", "datalist", 
-                "dd", "del", "details", "dfn", "dialog", "div", "dl", "dt", "em", 
-                "embed", "fieldset", "figcaption", "figure", "footer", "form", 
-                "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", 
-                "html", "i", "iframe", "img", "input", "ins", "kbd", "label", "legend", 
-                "li", "link", "main", "map", "mark", "meta", "meter", "nav", "noscript", 
-                "object", "ol", "optgroup", "option", "output", "p", "param", "picture", 
-                "pre", "progress", "q", "rb", "rp", "rt", "rtc", "ruby", "s", "samp", 
-                "script", "section", "select", "slot", "small", "source", "span", "strong", 
-                "style", "sub", "summary", "sup", "table", "tbody", "td", "template", 
-                "textarea", "tfoot", "th", "thead", "time", "title", "tr", "track", 
-                "u", "ul", "var", "video", "wbr", "svg",
-            ]);
-            bulk_add(&mut result, "attribute", &[
-                r"([A-Za-z0-9-]+)=",
-                r"(class)\s*=", r"(id)\s*=", r"(style)\s*=", r"(src)\s*=", r"(rel)\s*=", r"(type)\s*=", r"(charset)\s*=",
-                r"(data-target)\s*=", r"(name)\s*=", r"(href)\s*=", r"(content)\s*=", r"(width)\s*=", r"(height)\s*=",
-                r"(aria-label)\s*=", r"(role)\s*=", r"(aria-hidden)\s*=", r"(aria-expanded)\s*=", r"\s*defer\s*",
-            ]);
-        }
-        "md" | "markdown" => {
-            result.bounded("comment", "<!--", "-->", false);
-            result.keyword("heading", "(#.*)$");
-            result.keyword("quote", "^(>.*)$");
-            result.bounded("bold", "\\*\\*", "\\*\\*", true);
-            result.bounded("italic", "\\*", "\\*", true);
-            result.bounded("strikethrough", "~~", "~~", true);
-            result.bounded("image", "!\\[", "\\]", true);
-            result.bounded("link", "\\[", "\\]", true);
-            result.bounded("math", "\\$\\$", "\\$\\$", false);
-            result.bounded("math", "\\$", "\\$", false);
-            result.bounded("block", "```", "```", false);
-            result.bounded("block", "`", "`", true);
-            result.keyword("link", r"\b(?:https?://|www\.)\S+\b");
-            result.keyword("linebreak", "^\\s*-{3}");
-            result.keyword("list", "[0-9]+\\.");
-            result.keyword("list", "^\\s*-");
-            result.keyword("list", "^\\s*\\+");
-        }
-        "toml" => {
-            result.bounded("string", "\"", "\"", true);
-            result.bounded("string", "\'", "\'", true);
-            result.keyword("comment", "(#.*)$");
-            result.keyword("boolean", "\\b(true|false)\\b");
-            result.keyword("table", r"^(\[.*\])");
-            bulk_add(&mut result, "digit", &[
-                r"(?:=|\[|,)\s*(0x[a-fA-F]+)",
-                r"(?:=|\[|,)\s*(0o[0-7]+)",
-                r"(?:=|\[|,)\s*(0b[0-1]+)",
-                r"(?:=|\[|,)\s*((?:\+|-)?[0-9]+(?:\.[0-9]+)?(?:e|E)(?:\+|-)?[0-9]+)",
-                r"(?:=|\[|,)\s*((?:\+|-)?[0-9_]+(?:\.[0-9]+)?)",
-            ]);
-            add_keywords(&mut result, &["inf", "nan"]);
-        }
-        "yaml" | "yml" => {
-            result.bounded("string", "\"", "\"", true);
-            result.bounded("string", "\'", "\'", true);
-            result.keyword("comment", "(#.*)$");
-            result.keyword("key", r"^\s*[ \.a-zA-Z_-]+:");
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("tag", "!!(?:bool|int|float|str|timestamp|null|binary)");
-            add_keywords(&mut result, &["No", "Yes", "no", "yes", "true", "false", "null"]);
-
-        }
-        "csv" => {
-            result.keyword("keyword", ",");
-        }
-        "sh" | "bash" | "bash_profile" | "bashrc" => {
-            result.bounded_interp("string", "\"", "\"", "\\$\\(", "\\)", true);
-            result.bounded("string", "\'", "\'", true);
-            result.bounded("string", "EOF", "EOF", true);
-            result.keyword("comment", "(#.*)$");
-            result.keyword("boolean", "\\b(true|false)\\b");
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", r"(\{)", r"(\})",
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(\$)", r"(\.\.)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(\.)", r"(&)",
-            ]);
-            add_keywords(&mut result, &[
-                "if", "then", "else", "elif", "fi", "case", "esac", "for", "while", "until",
-                "do", "done", "in", "function", "select", "continue", "break", "return",
-                "exit", "source", "declare", "readonly", "local", "export", "ls", "cd", 
-                "pwd", "cp", "mv", "rm", "mkdir", "rmdir", "touch", "chmod", "chown", "grep", 
-                "awk", "sed", "cat", "head", "tail", "sort", "uniq", "wc", "cut", "paste",
-                "find", "tar", "gzip", "gunzip", "zip", "unzip", "ssh", "scp", "rsync", "curl",
-                "wget", "ping", "traceroute", "netstat", "ps", "kill", "top", "df", "du",
-                "date", "cal", "history", "alias", "source", "source", "exec", "exit", "help",
-                "man", "info", "echo", "fgrep", "apropos", "whoami", "python", "bg", "fg", "sleep",
-                "jobs", "read", "trap", "clear", "sh", "bash"
-            ]);
-            bulk_add(&mut result, "function", &[
-                "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
-            ]);
-            
-        }
-        "sql" | "sqlproj" => {
-            result.keyword("comment", "(--.*)$");
-            result.bounded("string", "\"", "\"", true);
-            result.bounded("string", "\'", "\'", true);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            bulk_add(&mut result, "operator", &[
-                r"\+", "-", r"\*", "/", "%",
-                "=", "<>", "!=", "<", ">", "<=", ">=",
-                "&", "|", "^", "~", "||", "=",
-            ]);
-            add_keywords(&mut result, &[
-                "ADD", "ALL", "ALTER", "AND", "AS", "ASC", "BETWEEN", "BY", "CASE", "CHECK",
-                "COLUMN", "CONSTRAINT", "CREATE", "DATABASE", "DEFAULT", "DELETE", "DESC",
-                "DISTINCT", "DROP", "ELSE", "END", "EXISTS", "FOREIGN", "FROM", "FULL",
-                "GROUP", "HAVING", "IN", "INDEX", "INNER", "INSERT", "INTO", "IS", "JOIN",
-                "LEFT", "LIKE", "LIMIT", "NOT", "NULL", "ON", "OR", "ORDER", "OUTER", "PRIMARY",
-                "REFERENCES", "RIGHT", "SELECT", "SET", "TABLE", "TOP", "TRUNCATE", "UNION", 
-                "UNIQUE", "UPDATE", "VALUES", "VIEW", "WHERE", "SHOW", "USE", "VARCHAR",
-            ]);
-        }
-        "xml" => {
-            result.bounded("comment", "<!--", "-->", false);
-            result.bounded("string", "\"", "\"", true);
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            result.keyword("boolean", "\\b(true|false)\\b");
-            result.keyword("operator", "=");
-            bulk_add(&mut result, "tag", &[
-                "<[A-Za-z0-9_]+>?", "</[A-Za-z0-9_]+>",
-                "</", "/>", ">", "<!", "<"
-            ]);
-            bulk_add(&mut result, "attribute", &[
-                r"([A-Za-z0-9-]+)=",
-            ]);
-        }
-        "nu" => {
-            result.bounded("string", "\"", "\"", true);
-            result.bounded("string", "'", "'", true);
-            result.keyword("comment", "(#.*)$");
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", 
-                r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", r"(\{)", r"(\})",
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(\$)", r"(\.\.)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(\.)", r"(&)", r"(\|)",
-            ]);
-            add_keywords(&mut result, &[
-                "alias", "append", "build-string", "cd", "config", "cp", "debug", "def", 
-                "do", "each", "echo", "else", "empty?", "enter", "every", "exit", "export",
-                "filter", "first", "flatten", "for", "format", "from", "get", "group-by",
-                "help", "history", "if", "insert", "keep", "last", "let", "ls", "math",
-                "merge", "metadata", "move", "mut", "open", "parse", "pivot", "plugin",
-                "post", "pre", "prune", "reduce", "reject", "rename", "rm", "save",
-                "select", "skip", "sort-by", "source", "split", "str", "table", "to",
-                "touch", "uniq", "update", "url", "use", "where", "with-env", "drop",
-                "complete", "load-env", "exec", "mkdir", "du", "glob", "mktemp", "mv",
-                "ps", "run-external", "start", "sys", "uname", "watch", "which", "nu-check",
-                "nu-highlight", "print", "decode", "char", "encode", "detect", "url", "dexit",
-                "shells", "random", "gstat", "ansi", "input", "keybindings", "kill", "sleep", 
-                "term", "ulimit", "whoami", "is-terminal", "clear", "path", "http", "query",
-                "port", "tutor", "math", "polars", "hash", "cal", "generate", "seq", "columns",
-                "collect", "compact", "flatten", "group", "headers", "transpose", "enumerate",
-                "catch", "try", "find", "upsert", "string", "pattern", "fill",
-            ]);
-
-        }
-        "tex" => {
-            result.bounded("string", "\\$", "\\$", true);
-            result.keyword("comment", r"([^\\]%.*)$");
-            result.keyword("comment", r"^(%.*)$");
-            result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
-            bulk_add(&mut result, "keyword", &[
-                r"\\addbibresource\b", r"\\author\b", r"\\begin\b", r"\\caption\b", r"\\centering\b", r"\\date\b", 
-                r"\\end\b", r"\\geometry\b", r"\\hline\b", r"\\includegraphics\b", r"\\item\b", r"\\label\b", 
-                r"\\maketitle\b", r"\\paragraph\b", r"\\parindent\b", r"\\parskip\b", r"\\printbibliography\b", 
-                r"\\section\b", r"\\setlength\b", r"\\subsection\b", r"\\tableofcontents\b", r"\\textbf\b", 
-                r"\\textit\b", r"\\texttt\b", r"\\title\b", r"\\today\b", r"\\underline\b", r"\\usepackage\b",
-                r"\\ref\b", r"\\cite\b", r"\\pageref\b", r"\\include\b", r"\\input\b", r"\\bibliographystyle\b",
-                r"\\newcommand\b", r"\\renewcommand\b", r"\\renewenvironment\b", r"\\newenvironment\b",
-                r"\\footnote\b", r"\\hline\b", r"\\vspace\b", r"\\hspace\b", r"\\newline\b", r"\\frac\b",
-                r"\\textbackslash\b", r"\\documentclass\b",
-            ]);
-            bulk_add(&mut result, "operator", &[
-                r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(#)",
-                r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", r"(\^)", r"(%)",
-                r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(\$)", r"(\.\.)",
-                r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(&)", r"(\|)",
-            ]);
-        }
-        "diff" => {
-            result.keyword("insertion", r"^(\+(?:[^+]|$).*)$");
-            result.keyword("deletion", r"^\-(?:[^-]|$).*$");
-            result.keyword("comment", r"@@.*@@");
-        }
-        _ => return None,
-    }
+    let mut result = match ext.to_lowercase().as_str() {
+        "rs" => rust_syntax_highlighter().to_owned(),
+        "asm" | "s" => asm_syntax_highlighter().to_owned(),
+        "py" | "pyw" => python_syntax_highlighter().to_owned(),
+        "rb" | "ruby" => ruby_syntax_highlighter().to_owned(),
+        "cgi" | "pm" => cgi_syntax_highlighter().to_owned(),
+        "lua" => lua_syntax_highlighter().to_owned(),
+        "r" | "rproj" => r_syntax_highlighter().to_owned(),
+        "go" => go_syntax_highlighter().to_owned(),
+        "js" => js_syntax_highlighter().to_owned(),
+        "ts" | "tsx" => ts_syntax_highlighter().to_owned(),
+        "dart" => dart_syntax_highlighter().to_owned(),
+        "c" | "h" => c_syntax_highlighter().to_owned(),
+        "cpp" | "hpp" | "c++" | "cxx" | "cc" => cpp_syntax_highlighter().to_owned(),
+        "cs" | "csproj" => cs_syntax_highlighter().to_owned(),
+        "swift" => swift_syntax_highlighter().to_owned(),
+        "json" => json_syntax_highlighter().to_owned(),
+        "kt" => kotlin_syntax_highlighter().to_owned(),
+        "class" | "java" => java_syntax_highlighter().to_owned(),
+        "vb" => vb_syntax_highlighter().to_owned(),
+        "m" => m_syntax_highlighter().to_owned(),
+        "php" => php_syntax_highlighter().to_owned(),
+        "scala" => scala_syntax_highlighter().to_owned(),
+        "pl" | "prolog" => prolog_syntax_highlighter().to_owned(),
+        "hs" => haskell_syntax_highlighter().to_owned(),
+        "css" => css_syntax_highlighter().to_owned(),
+        "html" | "htm" | "xhtml" => html_syntax_highlighter().to_owned(),
+        "md" | "markdown" => markdown_syntax_highlighter().to_owned(),
+        "toml" => toml_syntax_highlighter().to_owned(),
+        "yaml" | "yml" => yaml_syntax_highlighter().to_owned(),
+        "csv" => csv_syntax_highlighter().to_owned(),
+        "sh" | "bash" | "bash_profile" | "bashrc" => shell_syntax_highlighter().to_owned(),
+        "sql" | "sqlproj" => sql_syntax_highlighter().to_owned(),
+        "xml" => xml_syntax_highlighter().to_owned(),
+        "nu" => nushell_syntax_highlighter().to_owned(),
+        "tex" => tex_syntax_highlighter().to_owned(),
+        "diff" => diff_syntax_highlighter().to_owned(),
+        _ => Highlighter::new(tab_width),
+    };
+    result.tab_width = tab_width;
     Some(result)
 }
 
@@ -1806,9 +796,1122 @@ fn add_keywords(h: &mut Highlighter, kw: &[&str]) {
 
 fn add_keywords_case_indep(h: &mut Highlighter, kw: &[&str]) {
     h.keyword("keyword", &format!(r"\b({})\b", kw.join("|")));
-    h.keyword("keyword", &format!(r"\b({})\b", kw.iter().map(|x| x.to_uppercase()).collect::<Vec<_>>().join("|")));
+    h.keyword(
+        "keyword",
+        &format!(
+            r"\b({})\b",
+            kw.iter()
+                .map(|x| x.to_uppercase())
+                .collect::<Vec<_>>()
+                .join("|")
+        ),
+    );
 }
 
 fn bulk_add(h: &mut Highlighter, name: &str, kw: &[&str]) {
     h.keyword(name, &format!(r"({})", kw.join("|")));
+}
+
+fn rust_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "(//.*)$");
+        result.bounded("string", "r#\"", "\"#", true);
+        result.bounded("string", "r\"", "\"", true);
+        result.bounded("string", "#\"", "\"#", true);
+        result.bounded("string", "\"", "\"", true);
+        result.bounded("attribute", r"\#\[", r"\]", false);
+        result.bounded("attribute", r"\#!\[", r"\]", false);
+        result.keyword("namespace", "([a-z_][A-Za-z0-9_]*)::");
+        add_keywords(&mut result, &[
+            "as", "break", "const", "continue", "char", "crate", "else", "enum", "extern",
+            "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut",
+            "pub", "ref", "return", "self", "static", "struct", "super", "trait", "type",
+            "unsafe", "use", "where", "while", "async", "await", "dyn", "abstract", "become",
+            "box", "do", "final", "macro", "override", "priv", "typeof", "unsized", "virtual",
+            "yield", "try", "'static", "u8", "u16", "u32", "u64", "u128", "usize", "i8", "i16",
+            "i32", "i64", "i128", "isize", "f32", "f64", "String", "Vec", "str", "Some",
+            "bool", "None", "Box", "Result", "Option", "Ok", "Err", "Self", "std",
+        ]);
+        bulk_add(&mut result, "operator", &[
+            "&&", r"\|\|", "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=",
+            "\\-=", "\\*=", "\\\\=", "==", "!=", "\\?", ">=", "<=", "<", ">", "!",
+        ]);
+        bulk_add(&mut result, "character", &[r"'[^\\]'", "'\\\\.'"]);
+        bulk_add(&mut result, "digit", &["\\b(\\d+.\\d+|\\d+)", "\\b(\\d+.\\d+(?:f32|f64))"]);
+        bulk_add(&mut result, "boolean", &["\\b(true)\\b", "\\b(false)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "fn\\s+([a-z_][A-Za-z0-9_]*)\\s*\\(",
+            "fn\\s+([a-z_][A-Za-z0-9_]*)\\s*<.*>\\s*\\(",
+            "\\.([a-z_][A-Za-z0-9_]*)\\s*\\(",
+            "([a-z_][A-Za-z0-9_]*)\\s*\\(",
+        ]);
+        bulk_add(&mut result, "struct", &[
+            "(?:trait|enum|struct|impl)\\s+([A-Z][A-Za-z0-9_]*)\\s*",
+            "impl(?:<.*?>|)\\s+([A-Z][A-Za-z0-9_]*)",
+            "([A-Z][A-Za-z0-9_]*)::",
+            "([A-Z][A-Za-z0-9_]*)\\s*\\(",
+            "impl.*for\\s+([A-Z][A-Za-z0-9_]*)",
+            "::\\s*([a-z_][A-Za-z0-9_]*)\\s*\\(",
+        ]);
+        bulk_add(&mut result, "macro", &["\\b([a-z_][a-zA-Z0-9_]*!)", "(\\$[a-z_][A-Za-z0-9_]*)"]);
+        bulk_add(&mut result, "reference", &[
+            "&", "&str", "&mut", "&self", "&i8", "&i16", "&i32", "&i64", "&i128", "&isize",
+            "&u8", "&u16", "&u32", "&u64", "&u128", "&usize", "&f32", "&f64",
+        ]);
+        result
+    })
+}
+
+fn asm_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.keyword("function", "([a-zA-Z_]+)\\:$");
+        result.keyword("comment", "(;.*)$");
+        result.keyword("digit", "\\b((?:0x)?\\d+.\\d+|\\d+)");
+        result.bounded("string", "\"", "\"", true);
+        add_keywords_case_indep(
+            &mut result,
+            &[
+                "mov", "add", "sub", "jmp", "call", "ret", "bss", "data", "text", "section",
+                "globl", "extern", "db", "eax", "ebx", "ecx", "edx", "esp", "ebp", "int", "xor",
+                "imul", "inc", "jle", "cmp", "global", "section", "resb",
+            ],
+        );
+        result
+    })
+}
+
+fn python_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.keyword("comment", "(#.*)$");
+        result.bounded("string", "\"\"\"", "\"\"\"", true);
+        result.bounded("string", "\'\'\'", "\'\'\'", true);
+        result.bounded("string", "b\"", "\"", true);
+        result.bounded("string", "r\"", "\"", true);
+        result.bounded_interp("string", "f\"", "\"", "\\{", "\\}", true);
+        result.bounded("string", "\"", "\"", true);
+        result.bounded("string", "b\'", "\'", true);
+        result.bounded("string", "r\'", "\'", true);
+        result.bounded_interp("string", "f\'", "\'", "\\{", "\\}", true);
+        result.bounded("string", "\'", "\'", true);
+        add_keywords(&mut result, &[
+            "and", "as", "assert", "break", "class", "continue", "def", "del", "elif", "else", "except",
+            "exec", "finally", "for", "from", "global", "if", "import", "in", "is", "lambda", "not",
+            "or", "pass", "print", "raise", "return", "try", "while", "with", "yield", "str", "bool",
+            "int", "tuple", "list", "dict", "tuple", "len", "None", "input", "type", "set", "range",
+            "enumerate", "open", "iter", "min", "max", "dir", "self", "isinstance", "help", "next",
+            "super", "match", "case",
+        ]);
+        result.keyword("attribute", "@.*$");
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("struct", "class\\s+([A-Za-z0-9_]+)");
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"(\s//\s)", r"(%)", r"(\+=)",
+            r"(\-=)", r"(\*=)", r"(\\=)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
+        ]);
+        bulk_add(&mut result, "boolean", &["\\b(True)\\b", "\\b(False)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "def\\s+([a-z_][A-Za-z0-9_]*)",
+            "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
+            "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
+        ]);
+        result
+    })
+}
+
+fn ruby_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.keyword("comment", "(#.*)$");
+        result.bounded("comment", "=begin", "=end", false);
+        result.bounded_interp("string", "\"", "\"", "#\\{", "\\}", true);
+        result.bounded("string", "\'", "\'", true);
+        result.keyword("string", r"(\:[a-zA-Z_]+)");
+        add_keywords(&mut result, &[
+            "__ENCODING__", "__LINE__", "__FILE__", "BEGIN", "END", "alias", "and", "begin", "break",
+            "case", "class", "def", "defined?", "do", "else", "elsif", "end", "ensure", "for", "if",
+            "in", "module", "next", "nil", "not", "or", "redo", "rescue", "retry", "return", "self",
+            "super", "then", "undef", "unless", "until", "when", "while", "yield", "extend", "include",
+            "attr_reader", "attr_writer", "attr_accessor",
+        ]);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("struct", "class\\s+([A-Za-z0-9_]+)");
+        bulk_add(&mut result, "operator", &[
+            "!!", "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=", "\\-=", "\\*=", "\\\\=",
+            "==", "!=", "\\?", ">=", "<=", "<", ">", "&&", "\\|\\|", "!", "&", "\\|", "\\^",
+            "%",
+        ]);
+        bulk_add(&mut result, "boolean", &["\\b(true)\\b", "\\b(false)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "def\\s+([a-z_][A-Za-z0-9_]*)",
+            "^\\s*([a-z_][A-Za-z0-9_]*)\\s+[^=]",
+            "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
+            "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
+        ]);
+        result
+    })
+}
+
+fn cgi_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.keyword("comment", "(#.*)$");
+        result.bounded_interp("string", "\"", "\"", "#\\{", "\\}", true);
+        result.bounded("string", "(?:m|s)/", "/", true);
+        result.bounded("string", "\'", "\'", true);
+        result.keyword("string", r"(\:[a-zA-Z_]+)");
+        add_keywords(&mut result, &[
+            "if", "else", "elsif", "unless", "while", "for", "foreach", "until", "do", "next",
+            "last", "goto", "return", "sub", "my", "local", "our", "package", "use", "require",
+            "import", "undef", "and", "or", "not", "eq", "ne", "lt", "le", "gt", "ge", "cmp",
+            "qw", "scalar", "array", "hash", "undef", "undef", "ref", "bless", "glob", "filehandle",
+            "code", "regexp", "integer", "float", "string", "boolean", "reference", "die",
+        ]);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)");
+        bulk_add(&mut result, "operator", &[
+            "!!", "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=", "\\-=", "\\*=", "\\\\=",
+            "==", "!=", "\\?", ">=", "<=", "<", ">", "\\$","&&", "\\|\\|", "!", "&", "\\|",
+            "\\^", "(?:\\\\)?%", "\\\\@",
+        ]);
+        bulk_add(&mut result, "boolean", &["\\b(true)\\b", "\\b(false)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "sub\\s+([a-z_][A-Za-z0-9_]*)",
+            "^\\s*([a-z_][A-Za-z0-9_]*)\\s+[^=]",
+            "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
+            "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
+        ]);
+        result
+    })
+}
+
+fn lua_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"--\[\[", r"\]\]--", false);
+        result.keyword("comment", "(--.*)$");
+        result.bounded("string", "\"", "\"", true);
+        result.bounded("string", "\'", "\'", true);
+        result.bounded("string", "\\[\\[", "\\]\\]", true);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
+        bulk_add(&mut result, "function", &[
+            "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
+            "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
+        ]);
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)",
+            r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", r"(\.\.)", r"(==)", r"(~=)",
+            r"(>=)", r"(<=)", r"(<)", r"(>)", r"(#)", r"(<<)", r"(>>)", r"\b(and)\b",
+            r"\b(or)\b", r"\b(not)\b",
+        ]);
+        add_keywords(&mut result, &[
+            "break", "do", "else", "elseif", "end", "false", "for", "function", "if", "in",
+            "local", "nil", "repeat", "return", "then", "true", "until", "while", "self",
+        ]);
+        result
+    })
+}
+
+fn r_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.keyword("comment", "(#.*)$");
+        result.bounded("string", "\"", "\"", true);
+        result.bounded("string", "\'", "\'", true);
+        bulk_add(&mut result, "boolean", &["\\b(FALSE)\\b", "\\b(TRUE)\\b"]);
+        add_keywords(&mut result, &[
+            "if", "else", "repeat", "while", "function", "for", "in", "next", "break", "TRUE",
+            "FALSE", "NULL", "Inf", "NaN", "NA", "NA_integer_", "NA_real_", "NA_complex_",
+            "NA_character_", r"\.\.\.",
+        ]);
+        result.keyword("attribute", "@.*$");
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("struct", "class\\s+([A-Za-z0-9_]+)");
+        bulk_add(&mut result, "operator", &[
+            r"<-", r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"(\s//\s)", r"(&)", r"(%)",
+            r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)", r"(\$)", r"(|)", r"(==)", r"(!=)", r"(>=)",
+            r"(<=)", r"(<)", r"(>)", r"(\?)",
+        ]);
+        bulk_add(&mut result, "function", &[
+            "def\\s+([a-z_][A-Za-z0-9_]*)",
+            "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
+            "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
+        ]);
+        result
+    })
+}
+
+fn go_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "(//.*)$");
+        result.bounded("string", "\"", "\"", true);
+        result.bounded("string", "`", "`", true);
+        bulk_add(&mut result, "character", &[r"'[^\\]'", "'\\\\.'"]);
+        add_keywords(&mut result, &[
+            "break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough",
+            "for", "func", "go", "goto", "if", "import", "interface", "map", "package", "range",
+            "return", "select", "struct", "switch", "type", "var", "bool", "byte", "complex64", "complex128",
+            "error", "float32", "float64", "int", "int8", "int16", "int32", "int64", "rune", "string",
+        ]);
+        bulk_add(&mut result, "operator", &[
+            ":=", "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=", "\\-=", "\\*=", "\\\\=",
+            "==", "!=", "\\?", ">=", "<=", "<", ">",
+        ]);
+        bulk_add(&mut result, "digit", &["\\b(\\d+.\\d+|\\d+)", "\\b(\\d+.\\d+(?:f32|f64))"]);
+        bulk_add(&mut result, "boolean", &["\\b(true)\\b", "\\b(false)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "func\\s+([A-Za-z0-9_]+)\\s*\\(",
+            "\\.([A-Za-z0-9_]+)\\s*\\(",
+            "([A-Za-z0-9_]+)\\s*\\(",
+        ]);
+        bulk_add(&mut result, "reference", &["&"]);
+        result
+    })
+}
+
+fn js_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "//.*$");
+        result.bounded("string", "r\"", "\"", true);
+        result.bounded("string", "f\"", "\"", true);
+        result.bounded("string", "\"", "\"", true);
+        result.bounded("string", "r\'", "\'", true);
+        result.bounded("string", "f\'", "\'", true);
+        result.bounded("string", "\'", "\'", true);
+        result.bounded_interp("string", "r`", "`", "\\$\\{", "\\}", true);
+        result.bounded_interp("string", "f`", "`", "\\$\\{", "\\}", true);
+        result.bounded_interp("string", "`", "`", "\\$\\{", "\\}", true);
+        result.bounded("string", "/", "/", true);
+        add_keywords(&mut result, &[
+            "abstract", "arguments", "await", "boolean", "break", "byte", "case", "catch", "char",
+            "class", "const", "continue", "debugger", "default", "delete", "do", "double", "else",
+            "enum", "eval", "export", "extends", "final", "finally", "float", "for", "of", "function",
+            "goto", "if", "implements", "import", "in", "instanceof", "int", "interface", "let", "long",
+            "native", "new", "null", "package", "private", "protected", "public", "return", "short",
+            "static", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try",
+            "typeof", "var", "void", "volatile", "console", "while", "with", "yield", "undefined", "NaN",
+            "-Infinity", "Infinity",
+        ]);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("struct", "class\\s+([A-Za-z0-9_]+)");
+        bulk_add(&mut result, "boolean", &["\\b(true)\\b", "\\b(false)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "function\\s+([a-z_][A-Za-z0-9_]*)",
+            "\\b([a-z_][A-Za-z0-9_]*)\\s*\\(",
+            "\\.([a-z_][A-Za-z0-9_]*)\\s*",
+        ]);
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)",
+            r"(\-=)", r"(\*=)", r"(\\=)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)",
+            r"(>)", r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
+        ]);
+        result
+    })
+}
+
+fn ts_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "//.*$");
+        result.bounded("string", "r\"", "\"", true);
+        result.bounded("string", "f\"", "\"", true);
+        result.bounded("string", "\"", "\"", true);
+        result.bounded("string", "r\'", "\'", true);
+        result.bounded("string", "f\'", "\'", true);
+        result.bounded("string", "\'", "\'", true);
+        result.bounded_interp("string", "r`", "`", "\\$\\{", "\\}", true);
+        result.bounded_interp("string", "f`", "`", "\\$\\{", "\\}", true);
+        result.bounded_interp("string", "`", "`", "\\$\\{", "\\}", true);
+        result.bounded("string", "/", "/", true);
+        add_keywords(&mut result, &[
+            "abstract", "any", "as", "asserts", "boolean", "break", "case", "catch", "class", "const", "constructor",
+            "continue", "debugger", "declare", "default", "delete", "do", "else", "enum", "export", "extends", "false",
+            "finally", "for", "from", "function", "get", "if", "implements", "import", "in", "infer", "instanceof",
+            "interface", "is", "keyof", "let", "module", "namespace", "never", "new", "null", "number", "object", "package",
+            "private", "protected", "public", "readonly", "require", "global", "return", "set", "static", "string",
+            "super", "switch", "symbol", "this", "throw", "true", "try", "type", "typeof", "undefined", "unique", "unknown",
+            "var", "void", "while", "with", "yield",
+        ]);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("struct", "class\\s+([A-Za-z0-9_]+)");
+        bulk_add(&mut result, "boolean", &["\\b(true)\\b", "\\b(false)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "function\\s+([a-z_][A-Za-z0-9_]*)",
+            "\\b([a-z_][A-Za-z0-9_]*)\\s*\\(",
+            "\\.([a-z_][A-Za-z0-9_]*)\\s*",
+        ]);
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)", r"(\-=)",
+            r"(\*=)", r"(\\=)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(<<)", r"(>>)",
+            r"(\&\&)", r"(\|\|)", r"(!)\S",
+        ]);
+        result
+    })
+}
+
+fn dart_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "//.*$");
+        result.bounded("string", "\"\"\"", "\"\"\"", true);
+        result.bounded("string", "\'\'\'", "\'\'\'", true);
+        result.bounded_interp("string", "\"", "\"", "\\$\\{", "\\}", true);
+        result.bounded("string", "\'", "\'", true);
+        add_keywords(&mut result, &[
+            "abstract", "as", "assert", "async", "await", "break", "case", "catch", "class", "const", "continue", "covariant", "default",
+            "deferred", "do", "dynamic", "else", "enum", "export", "extends", "extension", "external", "factory", "false", "final", "finally",
+            "for", "Function", "get", "hide", "if", "implements", "import", "in", "inout", "interface", "is", "late", "library", "mixin",
+            "new", "null", "on", "operator", "out", "part", "required", "rethrow", "return", "set", "show", "static", "super", "switch",
+            "sync", "this", "throw", "true", "try", "typedef", "var", "void", "while", "with", "yield", "int", "double", "num", "string",
+        ]);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]+)");
+        bulk_add(&mut result, "boolean", &["\\b(true)\\b", "\\b(false)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "\\b([a-z_][A-Za-z0-9_]*)(?:<[A-Za-z_]*>)?\\s*\\(",
+            "\\.([a-z_][A-Za-z0-9_]*)\\s*",
+        ]);
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)",
+            r"(\-=)", r"(\*=)", r"(\\=)", "~/", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)",
+            r"(>)", "\\?", r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", "\\?\\?",
+        ]);
+        result
+    })
+}
+
+fn c_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "(//.*)$");
+        result.bounded("string", "\"", "\"", true);
+        add_keywords(&mut result, &[
+            "auto", "break", "case", "char", "const", "continue", "default", "do", "double",
+            "else", "enum", "extern", "float", "for", "goto", "if", "int", "long", "register",
+            "return", "short", "signed", "sizeof", "static", "struct", "switch", "typedef",
+            "union", "unsigned", "void", "volatile", "while", "printf", "fscanf", "scanf",
+            "fputsf", "exit", "stderr", "malloc", "calloc", "bool", "realloc", "free",
+            "strlen", "size_t",
+        ]);
+        result.keyword("struct", "\\}\\s+([A-Za-z0-9_]+)\\s*");
+        result.keyword("attribute", "^\\s*(#.*?)\\s");
+        result.keyword("header", "(<.*?>)");
+        bulk_add(&mut result, "digit", &["\\b(\\d+.\\d+|\\d+)", "\\b(\\d+.\\d+(?:f|))"]);
+        bulk_add(&mut result, "character", &[r"'[^\\]'", "'\\\\.'"]);
+        bulk_add(&mut result, "boolean", &["\\b(true)\\b", "\\b(false)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "(int|bool|void|char|double|long|short|size_t)\\s+([a-z_][A-Za-z0-9_]*)\\s*\\(",
+            "\\b([a-z_][A-Za-z0-9_]*)\\s*\\(",
+        ]);
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"(%)", r"(\+=)", r"(\-=)",
+            r"(\*=)", r"(\\=)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(<<)",
+            r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
+        ]);
+        result
+    })
+}
+
+fn cpp_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "(//.*)$");
+        result.bounded("string", "\"", "\"", true);
+        add_keywords(&mut result, &[
+            "alignas", "alignof", "and", "and_eq", "asm", "auto", "bitand", "bitor", "bool", "break", "case",
+            "catch", "char", "char8_t", "char16_t", "char32_t", "class", "compl", "concept", "const", "consteval", "constexpr",
+            "constinit", "const_cast", "continue", "co_await", "co_return", "co_yield", "decltype", "default",
+            "delete", "do", "double", "dynamic_cast", "else", "enum", "explicit", "export", "extern", "false", "float",
+            "for", "friend", "goto", "if", "inline", "int", "long", "mutable", "namespace", "new", "noexcept", "not", "not_eq",
+            "nullptr", "operator", "or", "or_eq", "private", "protected", "public", "register", "reinterpret_cast", "requires", "return",
+            "short", "signed", "sizeof", "static", "static_assert", "static_cast", "struct", "switch", "template", "this",
+            "thread_local", "throw", "true", "try", "typedef", "typeid", "typename", "union", "unsigned", "using", "virtual",
+            "void", "volatile", "wchar_t", "while", "xor", "xor_eq", "std", "string",
+        ]);
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)");
+        result.keyword("attribute", "^\\s*(#[a-zA-Z_]+)\\s*");
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"(%)", r"(\+=)", r"(\-=)",
+            r"(\*=)", r"(\\=)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(<<)",
+            r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(|)", r"(&)", r"(^)", r"(~)",
+        ]);
+        result.keyword("header", "(<.*?>)");
+        bulk_add(&mut result, "digit", &["\\b(\\d+.\\d+|\\d+)", "\\b(\\d+.\\d+(?:f|))"]);
+        bulk_add(&mut result, "character", &[r"'[^\\]'", "'\\\\.'"]);
+        bulk_add(&mut result, "boolean", &["\\b(true)\\b", "\\b(false)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "(int|bool|void|char|double|long|short|size_t)\\s+([a-z_][A-Za-z0-9_]*)\\s*\\(",
+            "\\b([a-z_][A-Za-z0-9_]*)\\s*\\(",
+        ]);
+        result
+    })
+}
+
+fn cs_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "(//.*)$");
+        result.bounded("string", "\"", "\"", true);
+        add_keywords(&mut result, &[
+            "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked",
+            "class", "const", "continue", "decimal", "default", "delegate", "do", "double", "else",
+            "enum", "event", "explicit", "extern", "false", "finally", "fixed", "float", "for",
+            "foreach", "goto", "if", "implicit", "in", "int", "interface", "internal", "is", "lock",
+            "long", "namespace", "new", "null", "object", "operator", "out", "override", "params",
+            "private", "protected", "public", "readonly", "ref", "return", "sbyte", "sealed",
+            "short", "sizeof", "stackalloc", "static", "string", "struct", "switch", "this", "throw",
+            "true", "try", "typeof", "uint", "ulong", "unchecked", "unsafe", "ushort", "using",
+            "using", "static", "virtual", "void", "volatile", "while", "add", "alias", "ascending", "async",
+            "await", "by", "descending", "dynamic", "equals", "from", "get", "global", "group",
+            "into", "join", "let", "nameof", "on", "orderby", "partial", "remove", "select", "set",
+            "unmanaged", "value", "var", "when", "where", "with", "yield",
+        ]);
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)");
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"(%)", r"(\+=)", r"(\-=)",
+            r"(\*=)", r"(\\=)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(<<)",
+            r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(|)", r"(&)", r"(^)", r"(~)",
+        ]);
+        bulk_add(&mut result, "digit", &["\\b(\\d+.\\d+|\\d+)", "\\b(\\d+.\\d+(?:f|m|))"]);
+        bulk_add(&mut result, "character", &[r"'[^\\]'", "'\\\\.'"]);
+        bulk_add(&mut result, "boolean", &["\\b(true)\\b", "\\b(false)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "(int|bool|void|char|double|long|short|size_t)\\s+([a-z_][A-Za-z0-9_]*)\\s*\\(",
+            "\\b([a-z_][A-Za-z0-9_]*)\\s*\\(",
+        ]);
+        result
+    })
+}
+
+fn swift_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "(//.*)$");
+        result.bounded_interp("string", "#\"", "\"#", "\\\\#?\\(", "\\)", true);
+        result.bounded("string", "\"\"\"", "\"\"\"", true);
+        result.bounded_interp("string", "\"", "\"", "\\\\\\(", "\\)", true);
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
+        add_keywords(&mut result, &[
+            "associatedtype", "class", "deinit", "enum", "extension", "fileprivate", "func",
+            "import", "init", "inout", "internal", "let", "open", "operator", "private",
+            "protocol", "public", "static", "struct", "subscript", "typealias", "var", "break",
+            "case", "continue", "default", "defer", "do", "else", "fallthrough", "for", "guard",
+            "if", "in", "repeat", "return", "switch", "where", "while", "as", "catch", "throw",
+            "try", "Any", "false", "is", "nil", "super", "self", "Self", "true", "associativity",
+            "convenience", "dynamic", "didSet", "final", "get", "infix", "indirect", "lazy", "left",
+            "mutating", "none", "nonmutating", "optional", "override", "postfix", "precedence", "prefix",
+            "Protocol", "required", "right", "set", "Type", "unowned", "weak", "willSet", "Int",
+            "String", "Double", "Optional", "endif",
+        ]);
+        bulk_add(&mut result, "operator", &[
+            "=", "\\+", "\\-", "\\*", "[^/](/)[^/]", "\\+=", "\\-=", "\\*=", "\\\\=", "==",
+            "!=", "\\?", ">=", "<=", "<", ">", "!",
+        ]);
+        bulk_add(&mut result, "digit", &["\\b(\\d+.\\d+|\\d+)", "\\b(\\d+.\\d+(?:f32|f64))"]);
+        bulk_add(&mut result, "boolean", &["\\b(true)\\b", "\\b(false)\\b"]);
+        bulk_add(&mut result, "function", &[
+            "func\\s+([a-z_][A-Za-z0-9_]*)\\s*(?:\\(|<)",
+            "\\.([a-z_][A-Za-z0-9_]*)\\s*\\(",
+            "([a-z_][A-Za-z0-9_]*)\\s*\\(",
+        ]);
+        result
+    })
+}
+
+fn json_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("string", "\"", "\"", true);
+        result.keyword("keyword", r"\b(null)\b");
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("boolean", "\\b(true|false)\\b");
+        result
+    })
+}
+
+fn kotlin_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "(//.*)$");
+        result.bounded("string", "\"\"\"", "\"\"\"", true);
+        result.bounded("string", "\"", "\"", true);
+        result.keyword("attribute", r"@\w+");
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
+        result.keyword("boolean", "\\b(true|false)\\b");
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)", r"(\-=)",
+            r"(\*=)", r"(\\=)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(<<)", r"(>>)",
+            r"(\&\&)", r"(\|\|)", r"(!)\S",
+        ]);
+        add_keywords(&mut result, &[
+            "abstract", "actual", "annotation", "companion", "constructor", "enum", "external", "expect",
+            "final", "fun", "inline", "inner", "interface", "internal", "private", "protected", "public",
+            "sealed", "suspend", "tailrec", "vararg", "as", "break", "class", "continue", "do", "else",
+            "false", "for", "if", "in", "is", "null", "object", "infix", "package", "return", "super", "this",
+            "throw", "true", "try", "data", "typealias", "typeof", "val", "when", "while", "var", "operator",
+            "override",
+        ]);
+        bulk_add(&mut result, "function", &[
+            "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
+            "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
+            "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\{",
+        ]);
+        result
+    })
+}
+
+fn java_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "(//.*)$");
+        result.bounded("string", "\"", "\"", true);
+        result.keyword("attribute", r"@\w+");
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
+        result.keyword("boolean", "\\b(true|false)\\b");
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)", r"(\-=)",
+            r"(\*=)", r"(\\=)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(<<)", r"(>>)",
+            r"(\&\&)", r"(\|\|)", r"(!)\S",
+        ]);
+        add_keywords(&mut result, &[
+            "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue",
+            "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto",
+            "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private",
+            "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this",
+            "throw", "throws", "transient", "try", "var", "void", "volatile", "while", "null",
+        ]);
+        bulk_add(&mut result, "function", &[
+            "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
+            "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
+        ]);
+        result
+    })
+}
+
+fn vb_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.keyword("comment", "('.*)$");
+        result.bounded("string", "\"", "\"", true);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        bulk_add(&mut result, "function", &["\\b([A-Za-z0-9_\\?!]*)\\s*\\("]);
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)", r"(\-=)",
+            r"(\*=)", r"(\\=)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(<<)", r"(>>)",
+            r"(\&\&)", r"(\|\|)", r"(!)\S",
+        ]);
+        add_keywords(&mut result, &[
+            "AddHandler", "AddressOf", "Alias", "And", "AndAlso", "Ansi", "As", "Assembly", "Auto", "Boolean",
+            "ByRef", "Byte", "ByVal", "Call", "Case", "Catch", "CBool", "CByte", "CChar", "CDate", "CDec", "CDbl",
+            "Char", "CInt", "Class", "CLng", "CObj", "Const", "CShort", "CSng", "CStr", "CType", "Date", "Decimal",
+            "Declare", "Default", "Delegate", "Dim", "DirectCast", "Do", "Double", "Each", "Else", "ElseIf", "End",
+            "Enum", "Erase", "Error", "Event", "Exit", "False", "Finally", "For", "Friend", "Function", "Get", "GetType",
+            "GoSub", "GoTo", "Handles", "If", "Implements", "Imports", "In", "Inherits", "Integer", "Interface",
+            "Is", "IsNot", "Let", "Lib", "Like", "Long", "Loop", "Me", "Mod", "Module", "MustInherit", "MustOverride",
+            "MyBase", "MyClass", "Namespace", "Narrowing", "New", "Next", "Not", "Nothing", "NotInheritable",
+            "NotOverridable", "Object", "Of", "On", "Operator", "Option", "Optional", "Or", "OrElse", "Out", "Overloads",
+            "Overridable", "Overrides", "ParamArray", "Partial", "Private", "Property", "Protected", "Public", "RaiseEvent",
+            "ReadOnly", "ReDim", "REM", "RemoveHandler", "Resume", "Return", "SByte", "Select", "Set", "Shadows", "Shared",
+            "Short", "Single", "Static", "Step", "Stop", "String", "Structure", "Sub", "SyncLock", "Then", "Throw", "To",
+            "True", "Try", "TryCast", "TypeOf", "UInteger", "ULong", "UShort", "Using", "Variant", "Wend", "When", "While",
+            "Widening", "With", "WithEvents", "WriteOnly", "Xor", "Console",
+        ]);
+        result
+    })
+}
+
+fn m_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", "%\\{", "%\\}", true);
+        result.keyword("comment", "(%.*)$");
+        result.bounded("string", "\'", "\'", true);
+        result.keyword("boolean", "\\b(true|false)\\b");
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)", r"(\-=)",
+            r"(\*=)", r"(\\=)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(<<)", r"(>>)",
+            r"(\&\&)", r"(\|\|)", r"(!)\S",
+        ]);
+        add_keywords(&mut result, &[
+            "break", "case", "catch", "classdef", "continue", "else", "elseif", "end", "for", "function",
+            "global", "if", "otherwise", "parfor", "persistent", "return", "spmd", "switch", "try", "while",
+            "inf", "nan", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "single",
+            "double", "char", "string", "cell", "struct", "table", "datetime", "properties", "NaN", "max",
+            "min", "length", "sort", "sum", "prod", "mode", "median", "mean", "std", "pi", "randi", "randn",
+            "rand", "clf", "shg", "close", "path", "addpath", "rmpath", "cd", "grid", "on", "axis", "square",
+            "equal", "off", "hold", "help", "doc", "lookfor", "profile", "viewer", "clc", "diary", "ctrl-c", "who",
+            "whos", "clear", "load", "format", "short", "long", "bank",
+        ]);
+        bulk_add(&mut result, "function", &[
+            "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
+            "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
+        ]);
+        result
+    })
+}
+
+fn php_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "(//.*)$");
+        result.keyword("comment", "(#.*)$");
+        result.bounded_interp("string", "\"", "\"", "\\{", "\\}", true);
+        result.bounded_interp("string", "\"", "\"", "\\$\\{", "\\}", true);
+        result.bounded("string", "\'", "\'", true);
+        result.keyword("boolean", "\\b(true|false|TRUE|FALSE)\\b");
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
+        bulk_add(&mut result, "function", &[
+            "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
+            "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
+        ]);
+        add_keywords(&mut result, &[
+            "__halt_compiler", "abstract", "and", "array", "as", "break", "callable", "case",
+            "catch", "class", "clone", "const", "continue", "declare", "default", "die", "do",
+            "echo", "else", "elseif", "empty", "enddeclare", "endfor", "endforeach", "endif", 
+            "endswitch", "endwhile", "eval", "exit", "extends", "final", "finally", "for", 
+            "foreach", "function", "global", "goto", "if", "implements", "include", "include_once",
+            "instanceof", "insteadof", "interface", "isset", "list", "namespace", "new", "or",
+            "print", "private", "protected", "public", "require", "require_once", "return", "static",
+            "switch", "throw", "trait", "try", "unset", "use", "var", "while", "xor",
+            "__CLASS__", "__DIR__", "__FILE__", "__FUNCTION__", "__LINE__", "__METHOD__",
+            "__NAMESPACE__", "__TRAIT__", "null",
+        ]);
+        result.keyword("keyword", r"<\?php");
+        result.keyword("keyword", r"\?>");
+        bulk_add(&mut result, "operator", &[
+            r"(->)", r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)",
+            r"(\-=)", r"(\*=)", r"(\\=)", r"(\?)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)",
+            r"(>)", r"(\$)", r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(\.)",
+        ]);
+        result
+    })
+}
+
+fn scala_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.keyword("comment", "(//.*)$");
+        result.bounded_interp("string", "f\"", "\"", "\\$\\{", "\\}", true);
+        result.bounded_interp("string", "s\"", "\"", "\\$\\{", "\\}", true);
+        result.bounded("string", "\"\"\"", "\"\"\"", true);
+        result.bounded("string", "raw\"", "\"", true);
+        result.bounded("string", "\"", "\"", true);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        bulk_add(&mut result, "character", &[r"'[^\\]'", "'\\\\.'"]);
+        result.keyword("boolean", "\\b(true|false)\\b");
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)", r"(\-=)", r"(\*=)", r"(\\=)",
+            r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S",
+        ]);
+        add_keywords(&mut result, &[
+            "abstract", "case", "catch", "class", "def", "do", "else", "extends", "false", "final", "finally",
+            "for", "forSome", "if", "implicit", "import", "lazy", "macro", "match", "new", "null", "object",
+            "override", "package", "private", "protected", "return", "sealed", "super", "this", "throw", "trait",
+            "try", "true", "type", "val", "var", "while", "with", "yield", "Boolean", "Byte", "Char", "Double",
+            "Float", "Int", "Long", "Short", "String", "Unit", "Any", "AnyVal", "AnyRef", "Nothing", "Null",
+            "foreach", "map", "println", "to", "by",
+        ]);
+        bulk_add(&mut result, "function", &[
+            "\\.([a-z_][A-Za-z0-9_\\?!]*)\\s*",
+            "\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\(",
+        ]);
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
+        result
+    })
+}
+
+fn prolog_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.keyword("comment", "(\\%.*)$");
+        result.bounded("string", "\"", "\"", true);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("boolean", "\\b(true|false)\\b");
+        result.keyword("struct", "\\b([A-Z][A-Za-z0-9_]*)\\b");
+        add_keywords_no_boundary(&mut result, &[
+            ":-", "\\,", "\\.", ";", "\\->", "\\+", "=", "is", "not", "fail", "!", "repeat", "call", "cut",
+            "assert", "asserta", "assertz", "retract", "abolish", "dynamic", "consult", "listing", "op",
+            "assertions", "clauses", "predicate", "query", "rule", "fact", "variable", "atom", "number",
+            "list", "compound", "ground", "callable", "atom", "number", "integer", "float", "variable",
+            "list", "compound",
+        ]);
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(<)", r"(>)",
+        ]);
+        bulk_add(&mut result, "function", &["\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\("]);
+        result
+    })
+}
+
+fn haskell_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.keyword("comment", "(\\-\\-.*)$");
+        result.bounded("comment", "\\{-", "-\\}", true);
+        result.bounded("string", "\"", "\"", true);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("boolean", "\\b(True|False)\\b");
+        bulk_add(&mut result, "character", &[r"'[^\\]'", "'\\\\.'"]);
+        bulk_add(&mut result, "operator", &[
+            "->", "\\$", "`.*`", "<-", "<", ">", "&&", "\\|\\|", "\\\\", "\\:",
+            "=", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)",
+            r"(\-=)", r"(\*=)", r"(/=)", "!", "\\.", "\\|", r"(==)", r"(!=)", r"(>=)",
+            r"(<=)", "_", r"(<<)", r"(>>)", r"(!)\S", "\\band\\b", "\\bor\\b", "\\bnot\\b",
+        ]);
+        add_keywords(&mut result, &[
+            "module", "import", "as", "qualified", "hiding", "do", "case", "of", "let", "in", "if", "then", "else",
+            "data", "type", "newtype", "deriving", "class", "instance", "where", "foreign", "export", "ccall",
+            "stdcall", "capi", "prim", "safe", "unsafe", "otherwise", "head", "tail", "last", "init", "null",
+            "length", "return", "map", "filter", "foldl", "foldr", "zip", "zipWith", "take", "drop", "reverse",
+            "concat", "concatMap", "maximum", "minimum", "elem", "notElem", "sum", "array", "product", "scanl",
+            "scanr", "replicate", "cycle", "repeat", "iterate", "fst", "snd", "id", "Maybe", "Either", "Bool",
+            "Char", "String", "putStrLn", "getLine", "Just", "Nothing", "for", "Int", "Integer", "Float",
+            "Double", "Ordering", "IO", "Functor", "Applicative", "Monad",
+        ]);
+        result.keyword("function", "^[a-z][a-zA-Z0-9]*");
+        result
+    })
+}
+
+fn css_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", r"/\*", r"\*/", false);
+        result.bounded("string", "\"", "\"", true);
+        add_keywords(&mut result, &["from", "to", "rotate", "none"]);
+        result.keyword("digit", r"\#[0-9a-fA-F]+");
+        result.keyword("digit", "((?:\\d+.\\d+|\\d+)(?:%|deg|px|em|rem)?)");
+        result.keyword("boolean", "\\b(true|false)\\b");
+        result.keyword("attribute", r"\.[a-zA-Z0-9\-]*");
+        result.keyword("attribute", r"\:[a-zA-Z0-9\-]*");
+        result.keyword("attribute", r"\::[a-zA-Z0-9\-]*");
+        result.keyword("attribute", r"@\w+");
+        add_keywords(&mut result, &[
+            "a", "abbr", "address", "area", "article", "aside", "audio", "b", "base", "bdi", "bdo", "blockquote",
+            "body", "br", "button", "canvas", "caption", "cite", "code", "col", "colgroup", "data", "datalist",
+            "dd", "del", "details", "dfn", "dialog", "div", "dl", "dt", "em", "embed", "fieldset", "figcaption",
+            "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr",
+            "html", "i", "iframe", "img", "input", "ins", "kbd", "label", "legend", "li", "link", "main", "map",
+            "mark", "meta", "meter", "nav", "noscript", "object", "ol", "optgroup", "option", "output", "p",
+            "param", "picture", "pre", "progress", "q", "rb", "rp", "rt", "rtc", "ruby", "s", "samp", "script",
+            "section", "select", "slot", "small", "source", "span", "strong", "style", "sub", "summary", "sup", 
+            "table", "tbody", "td", "template", "textarea", "tfoot", "th", "thead", "time", "title", "tr", "track",
+            "u", "ul", "var", "video", "wbr", "svg",
+        ]);
+        add_keywords(&mut result, &[
+            "-webkit-touch-callout", "-webkit-user-select", "-moz-user-select", "-ms-user-select",
+            "user-select", "transform", "border-radius", "border-right", "border-left", "border-top",
+            "border-bottom", "border", "content", "display", "height", "width", "margin-top", "margin-bottom",
+            "margin-left", "margin-right", "margin", "pointer-events", "position", "top", "transform-origin",
+            "-moz-appearance", "-webkit-appearance", "cursor", "flex-grow", "flex-shrink", "font-size",
+            "max-height", "max-width", "min-height", "min-width", "outline", "vertical-align", "background-color", 
+            "background-image", "background-position", "background-repeat", "background-size", "background",
+            "animation", "border-(?:left|right|top|bottom)-color", "border-(?:left|right|top|bottom)-radius",
+            "border-(?:left|right|top|bottom)-width", "border-(?:left|right|top|bottom)-style", "align-items",
+            "box-shadow", "justify-content", "line-height", "padding", "padding-(?:left|bottom|right|top)", "font-weight",
+            "list-style", "box-sizing", "text-align", "bottom", "overflow-x", "overflow-y", "text-rendering",
+            "-moz-osx-font-smoothing", "-webkit-font-smoothing", "text-size-adjust", "font-family", "color",
+            "text-decoration", "font-style", "word-wrap", "white-space", "-webkit-overflow-scrolling",
+            "clear", "float", "overflow", "!important", "text-transform", "clip", "visibility", "border-color",
+            "opacity", "flex-wrap", "border-(?:top|bottom)-(?:left|right)-radius", "z-index", "word-break", "letter-spacing",
+            "text-transform", "resize", "flex-direction", "order", "border-style", "border-width", "text-overflow",
+            "flex-basis", "-ms-overflow-y", "-ms-overflow-x", "transition-duration", "transition-property", 
+            "transition-timing-function", "(flex)[^-]", "-webkit-text-decoration-style", "-apple-system", "sans-serif",
+            "left", "right", "bottom", "top", "font", "tab-size", "text-shadow",
+        ]);
+        result
+    })
+}
+
+fn html_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", "<!--", "-->", false);
+        result.bounded("string", "\"", "\"", true);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("boolean", "\\b(true|false)\\b");
+        result.keyword("operator", "=");
+        bulk_add(&mut result, "tag", &["</", "/>", ">", "<!", "<"]);
+        add_html_keywords(&mut result, &[
+            "a", "abbr", "address", "area", "article", "aside", "audio", "b", "base", "bdi", "bdo", "blockquote",
+            "body", "br", "button", "canvas", "caption", "cite", "code", "col", "colgroup", "data", "datalist",
+            "dd", "del", "details", "dfn", "dialog", "div", "dl", "dt", "em", "embed", "fieldset", "figcaption", 
+            "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html",
+            "i", "iframe", "img", "input", "ins", "kbd", "label", "legend", "li", "link", "main", "map", "mark",
+            "meta", "meter", "nav", "noscript", "object", "ol", "optgroup", "option", "output", "p", "param", "picture",
+            "pre", "progress", "q", "rb", "rp", "rt", "rtc", "ruby", "s", "samp", "script", "section", "select", "slot",
+            "small", "source", "span", "strong", "style", "sub", "summary", "sup", "table", "tbody", "td", "template",
+            "textarea", "tfoot", "th", "thead", "time", "title", "tr", "track", "u", "ul", "var", "video", "wbr", "svg",
+        ]);
+        bulk_add(&mut result, "attribute", &[
+            r"([A-Za-z0-9-]+)=", r"(class)\s*=", r"(id)\s*=", r"(style)\s*=", r"(src)\s*=", r"(rel)\s*=",
+            r"(type)\s*=", r"(charset)\s*=", r"(data-target)\s*=", r"(name)\s*=", r"(href)\s*=", r"(content)\s*=",
+            r"(width)\s*=", r"(height)\s*=", r"(aria-label)\s*=", r"(role)\s*=", r"(aria-hidden)\s*=",
+            r"(aria-expanded)\s*=", r"\s*defer\s*",
+        ]);
+        result
+    })
+}
+
+fn markdown_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", "<!--", "-->", false);
+        result.keyword("heading", "(#.*)$");
+        result.keyword("quote", "^(>.*)$");
+        result.bounded("bold", "\\*\\*", "\\*\\*", true);
+        result.bounded("italic", "\\*", "\\*", true);
+        result.bounded("strikethrough", "~~", "~~", true);
+        result.bounded("image", "!\\[", "\\]", true);
+        result.bounded("link", "\\[", "\\]", true);
+        result.bounded("math", "\\$\\$", "\\$\\$", false);
+        result.bounded("math", "\\$", "\\$", false);
+        result.bounded("block", "```", "```", false);
+        result.bounded("block", "`", "`", true);
+        result.keyword("link", r"\b(?:https?://|www\.)\S+\b");
+        result.keyword("linebreak", "^\\s*-{3}");
+        result.keyword("list", "[0-9]+\\.");
+        result.keyword("list", "^\\s*-");
+        result.keyword("list", "^\\s*\\+");
+        result
+    })
+}
+
+fn toml_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("string", "\"", "\"", true);
+        result.bounded("string", "\'", "\'", true);
+        result.keyword("comment", "(#.*)$");
+        result.keyword("boolean", "\\b(true|false)\\b");
+        result.keyword("table", r"^(\[.*\])");
+        bulk_add(&mut result, "digit", &[
+            r"(?:=|\[|,)\s*(0x[a-fA-F]+)",
+            r"(?:=|\[|,)\s*(0o[0-7]+)",
+            r"(?:=|\[|,)\s*(0b[0-1]+)",
+            r"(?:=|\[|,)\s*((?:\+|-)?[0-9]+(?:\.[0-9]+)?(?:e|E)(?:\+|-)?[0-9]+)",
+            r"(?:=|\[|,)\s*((?:\+|-)?[0-9_]+(?:\.[0-9]+)?)",
+        ]);
+        add_keywords(&mut result, &["inf", "nan"]);
+        result
+    })
+}
+
+fn yaml_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("string", "\"", "\"", true);
+        result.bounded("string", "\'", "\'", true);
+        result.keyword("comment", "(#.*)$");
+        result.keyword("key", r"^\s*[ \.a-zA-Z_-]+:");
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("tag", "!!(?:bool|int|float|str|timestamp|null|binary)");
+        add_keywords(&mut result, &["No", "Yes", "no", "yes", "true", "false", "null"]);
+        result
+    })
+}
+
+fn csv_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.keyword("keyword", ",");
+        result
+    })
+}
+
+fn shell_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded_interp("string", "\"", "\"", "\\$\\(", "\\)", true);
+        result.bounded("string", "\'", "\'", true);
+        result.bounded("string", "EOF", "EOF", true);
+        result.keyword("comment", "(#.*)$");
+        result.keyword("boolean", "\\b(true|false)\\b");
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)", r"(\-=)", r"(\*=)",
+            r"(\\=)", r"(\{)", r"(\})", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)", r"(\$)", r"(\.\.)",
+            r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(\.)", r"(&)",
+        ]);
+        add_keywords(&mut result, &[
+            "if", "then", "else", "elif", "fi", "case", "esac", "for", "while", "until", "do", "done",
+            "in", "function", "select", "continue", "break", "return", "exit", "source", "declare", "readonly",
+            "local", "export", "ls", "cd", "pwd", "cp", "mv", "rm", "mkdir", "rmdir", "touch", "chmod",
+            "chown", "grep", "awk", "sed", "cat", "head", "tail", "sort", "uniq", "wc", "cut", "paste",
+            "find", "tar", "gzip", "gunzip", "zip", "unzip", "ssh", "scp", "rsync", "curl", "wget", "ping",
+            "traceroute", "netstat", "ps", "kill", "top", "df", "du", "date", "cal", "history", "alias",
+            "source", "source", "exec", "exit", "help", "man", "info", "echo", "fgrep", "apropos", 
+            "whoami", "python", "bg", "fg", "sleep", "jobs", "read", "trap", "clear", "sh", "bash",
+        ]);
+        bulk_add(&mut result, "function", &["\\b([a-z_][A-Za-z0-9_\\?!]*)\\s*\\("]);
+        result
+    })
+}
+
+fn sql_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.keyword("comment", "(--.*)$");
+        result.bounded("string", "\"", "\"", true);
+        result.bounded("string", "\'", "\'", true);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        bulk_add(&mut result, "operator", &[
+            r"\+", "-", r"\*", "/", "%", "=", "<>", "!=", "<", ">", "<=", ">=", "&", "|", "^",
+            "~", "||", "=",
+        ]);
+        add_keywords(&mut result, &[
+            "ADD", "ALL", "ALTER", "AND", "AS", "ASC", "BETWEEN", "BY", "CASE", "CHECK",
+            "COLUMN", "CONSTRAINT", "CREATE", "DATABASE", "DEFAULT", "DELETE", "DESC",
+            "DISTINCT", "DROP", "ELSE", "END", "EXISTS", "FOREIGN", "FROM", "FULL", "GROUP",
+            "HAVING", "IN", "INDEX", "INNER", "INSERT", "INTO", "IS", "JOIN", "LEFT", "LIKE",
+            "LIMIT", "NOT", "NULL", "ON", "OR", "ORDER", "OUTER", "PRIMARY", "REFERENCES",
+            "RIGHT", "SELECT", "SET", "TABLE", "TOP", "TRUNCATE", "UNION", "UNIQUE", "UPDATE",
+            "VALUES", "VIEW", "WHERE", "SHOW", "USE", "VARCHAR"
+        ]);
+        result
+    })
+}
+
+fn xml_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("comment", "<!--", "-->", false);
+        result.bounded("string", "\"", "\"", true);
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        result.keyword("boolean", "\\b(true|false)\\b");
+        result.keyword("operator", "=");
+        bulk_add(&mut result, "tag", &["<[A-Za-z0-9_]+>?", "</[A-Za-z0-9_]+>", "</", "/>", ">", "<!", "<"]);
+        bulk_add(&mut result, "attribute", &[r"([A-Za-z0-9-]+)="]);
+        result
+    })
+}
+
+fn nushell_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("string", "\"", "\"", true);
+        result.bounded("string", "'", "'", true);
+        result.keyword("comment", "(#.*)$");
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(%)", r"(\+=)",
+            r"(\-=)", r"(\*=)", r"(\\=)", r"(\{)", r"(\})", r"(==)", r"(!=)", r"(>=)",
+            r"(<=)", r"(<)", r"(>)", r"(\$)", r"(\.\.)", r"(<<)", r"(>>)", r"(\&\&)", 
+            r"(\|\|)", r"(!)\S", r"(\.)", r"(&)", r"(\|)"
+        ]);
+        add_keywords(&mut result, &[
+            "alias", "append", "build-string", "cd", "config", "cp", "debug", "def", "do",
+            "each", "echo", "else", "empty?", "enter", "every", "exit", "export", "filter",
+            "first", "flatten", "for", "format", "from", "get", "group-by", "help", "history",
+            "if", "insert", "keep", "last", "let", "ls", "math", "merge", "metadata", "move",
+            "mut", "open", "parse", "pivot", "plugin", "post", "pre", "prune", "reduce", "reject",
+            "rename", "rm", "save", "select", "skip", "sort-by", "source", "split", "str", "table",
+            "to", "touch", "uniq", "update", "url", "use", "where", "with-env", "drop", "complete",
+            "load-env", "exec", "mkdir", "du", "glob", "mktemp", "mv", "ps", "run-external", "start",
+            "sys", "uname", "watch", "which", "nu-check", "nu-highlight", "print", "decode", "char",
+            "encode", "detect", "url", "dexit", "shells", "random", "gstat", "ansi", "input",
+            "keybindings", "kill", "sleep", "term", "ulimit", "whoami", "is-terminal", "clear", "path",
+            "http", "query", "port", "tutor", "math", "polars", "hash", "cal", "generate", "seq",
+            "columns", "collect", "compact", "flatten", "group", "headers", "transpose", "enumerate",
+            "catch", "try", "find", "upsert", "string", "pattern", "fill",
+        ]);
+        result
+    })
+}
+
+fn tex_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.bounded("string", "\\$", "\\$", true);
+        result.keyword("comment", r"([^\\]%.*)$");
+        result.keyword("comment", r"^(%.*)$");
+        result.keyword("digit", "\\b(\\d+.\\d+|\\d+)");
+        bulk_add(&mut result, "keyword", &[
+            r"\\addbibresource\b", r"\\author\b", r"\\begin\b", r"\\caption\b",
+            r"\\centering\b", r"\\date\b", r"\\end\b", r"\\geometry\b", r"\\hline\b",
+            r"\\includegraphics\b", r"\\item\b", r"\\label\b", r"\\maketitle\b", r"\\paragraph\b",
+            r"\\parindent\b", r"\\parskip\b", r"\\printbibliography\b", r"\\section\b", r"\\setlength\b",
+            r"\\subsection\b", r"\\tableofcontents\b", r"\\textbf\b", r"\\textit\b", r"\\texttt\b",
+            r"\\title\b", r"\\today\b", r"\\underline\b", r"\\usepackage\b", r"\\ref\b",
+            r"\\cite\b", r"\\pageref\b", r"\\include\b", r"\\input\b", r"\\bibliographystyle\b",
+            r"\\newcommand\b", r"\\renewcommand\b", r"\\renewenvironment\b", r"\\newenvironment\b", 
+            r"\\footnote\b", r"\\hline\b", r"\\vspace\b", r"\\hspace\b", r"\\newline\b", r"\\frac\b", 
+            r"\\textbackslash\b", r"\\documentclass\b",
+        ]);
+        bulk_add(&mut result, "operator", &[
+            r"(=)", r"(\+)", r"(\-)", r"(\*)", r"(\s/\s)", r"\s(//)\s", r"(#)", r"(\+=)", r"(\-=)", 
+            r"(\*=)", r"(\\=)", r"(\^)", r"(%)", r"(==)", r"(!=)", r"(>=)", r"(<=)", r"(<)", r"(>)",
+            r"(\$)", r"(\.\.)", r"(<<)", r"(>>)", r"(\&\&)", r"(\|\|)", r"(!)\S", r"(&)", r"(\|)",
+        ]);
+        result
+    })
+}
+
+fn diff_syntax_highlighter() -> &'static Highlighter {
+    static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+    HIGHLIGHTER.get_or_init(|| {
+        let mut result = Highlighter::new(4);
+        result.keyword("insertion", r"^(\+(?:[^+]|$).*)$");
+        result.keyword("deletion", r"^\-(?:[^-]|$).*$");
+        result.keyword("comment", r"@@.*@@");
+        result
+    })
 }
