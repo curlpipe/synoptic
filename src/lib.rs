@@ -338,7 +338,7 @@ impl Highlighter {
     ///
     /// Note that this will overwrite any existing information,
     /// use append to add extra lines to the document.
-    pub fn run(&mut self, lines: &[String]) {
+    pub fn run(&mut self, lines: &[&str]) {
         // Atomize every line
         self.atoms = lines.iter().map(|l| self.atomize(l)).collect();
         self.tokenize();
