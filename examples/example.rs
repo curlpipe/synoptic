@@ -56,10 +56,10 @@ fn main() {
 
     // Now let's run the highlighter on the example code
     // The run method takes a vector of strings (for each line)
-    let code = CODE
+    let code: Vec<&str> = CODE
         .split('\n')
-        .map(|line| line.to_string())
         .collect();
+
     // Now we're ready to go
     h.run(&code);
 

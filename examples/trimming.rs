@@ -1,4 +1,4 @@
-use synoptic::{Highlighter, TokOpt, trim};
+use synoptic::{TokOpt, trim};
 use lliw::Fg;
 
 pub static CODE: &str = r#"
@@ -9,13 +9,13 @@ hello world!
 
 fn main() {
     let mut h = synoptic::from_extension("diff", 4).unwrap();
-    let mut code: Vec<String> = CODE.split('\n').map(|x| x.to_string()).collect();
+    let code: Vec<&str> = CODE.split('\n').collect();
     h.run(&code);
     // Trim and render
-    for length in 0..30 {
+    for _length in 0..30 {
         for (line_no, line) in code.iter().enumerate() {
             let tokens = h.line(line_no, &line);
-            let tokens = trim(&tokens, 0, length, 4);
+            let tokens = trim(&tokens, 0);
             for token in &tokens {
                 // Tokens can either require highlighting or not require highlighting
                 match token {

@@ -1,11 +1,11 @@
-use synoptic::{Highlighter, TokOpt, trim_fit};
+use synoptic::TokOpt;
 use lliw::Fg;
 
 pub static CODE: &str = r#"f"""#;
 
 fn main() {
     let mut h = synoptic::from_extension("py", 4).unwrap();
-    let mut code: Vec<String> = CODE.split('\n').map(|x| x.to_string()).collect();
+    let mut code: Vec<&str> = CODE.split('\n').collect();
     h.run(&code);
     // Initial state
     for token in &h.line(0, &code[0]) {
@@ -16,7 +16,7 @@ fn main() {
     }
     println!();
     // Try changing it
-    code[0] = r#"f"{}""#.to_string();
+    code[0] = r#"f"{}""#;
     h.edit(0, &code[0]);
     // Observe incorrect new state
     for token in &h.line(0, &code[0]) {
